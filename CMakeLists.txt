@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.5)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
 # 自动检测CUDA路径
@@ -127,7 +127,7 @@ if(USE_CPM)
     CPMAddPackage(
             NAME sentencepiece
             GITHUB_REPOSITORY google/sentencepiece
-            VERSION 0.2.0
+            GIT_TAG master
             EXCLUDE_FROM_ALL YES
     )
     find_package(sentencepiece REQUIRED)
@@ -201,8 +201,14 @@ file(
         test/test_base/*.h
 )
 file(
+        GLOB_RECURSE TEST_TENSOR CONFIGURE_DEPENDS
+        test/test_tensor/*.cpp
+        test/test_tensor/*.h
+)
+file(
         GLOB_RECURSE TEST_SRCS CONFIGURE_DEPENDS
         ${TEST_BASE}
+        ${TEST_TENSOR}
 )
 
 if (TEST_BASE)
@@ -224,4 +230,25 @@ if (TEST_BASE)
             CUDA_SEPARABLE_COMPILATION ON
     )
     add_test(NAME TestBase COMMAND test_base)
+endif ()
+
+if (TEST_TENSOR)
+    add_executable(
+            test_tensor
+            ${DIR_SOURCES}
+            ${TEST_TENSOR}
+    )
+
+    target_link_libraries(
+            test_tensor
+            glog::glog
+            GTest::gtest
+            GTest::gtest_main
+            GTest::gmock
+    )
+    set_target_properties(
+            test_tensor PROPERTIES
+            CUDA_SEPARABLE_COMPILATION ON
+    )
+    add_test(NAME TestTensor COMMAND test_tensor)
 endif ()

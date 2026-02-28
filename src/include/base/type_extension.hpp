@@ -74,6 +74,25 @@ namespace qwi::base {
                 return "";
         }
     }
+
+    inline size_t data_type_to_size(DataType type) {
+        switch (type) {
+            case DataType::kDataFloat32:
+                return sizeof(float);
+            case DataType::kDataFloat16:
+                return sizeof(uint16_t);
+            case DataType::kDataFloat8:
+                return sizeof(uint8_t);
+            case DataType::kDataInt32:
+                return sizeof(int32_t);
+            case DataType::kDataInt16:
+                return sizeof(int16_t);
+            case DataType::kDataInt8:
+                return sizeof(int8_t);
+            default:
+                return 0;
+        }
+    }
 }
 
 

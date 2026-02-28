@@ -22,10 +22,10 @@ namespace qwi::base {
         MemoryBuffer() = default;
         MemoryBuffer(
             void* data, size_t byte_size,
-            bool busy, size_t device_id = 0,
+            const bool busy, size_t device_id = 0,
             DeviceType device_type = DeviceType::kDeviceCPU
         ) : data(data), byte_size(byte_size),
-        busy(busy), device_id(device_id), device_type(device_type) {}
+        busy(busy), device_type(device_type), device_id(device_id) {}
     };
 
     class DeviceAllocator {

@@ -14,13 +14,13 @@ namespace qwi::base {
         const MemoryBuffer &memory_buffer,
         const std::shared_ptr<DeviceAllocator>& allocator,
         bool use_external
-    ) : memory_buffer_(memory_buffer),
-    allocator_(allocator), use_external_(use_external) {
+    ) : use_external_(use_external),
+    allocator_(allocator), memory_buffer_(memory_buffer) {
         if (!memory_buffer.data && allocator) {
             this->memory_buffer_ = allocator->allocate(
                 memory_buffer.byte_size
             );
-            this->use_external_ = true;
+            this->use_external_ = false;
         }
     }
 

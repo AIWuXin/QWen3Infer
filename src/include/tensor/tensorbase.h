@@ -16,6 +16,7 @@ namespace qwi::tensor {
         std::shared_ptr<base::Buffer> buffer_;
         std::vector<size_t> dims_;
         size_t ndims_ = 0;
+        size_t size_ = 0;
         base::DataType data_type_ = base::DataType::kDataUnknown;
     public:
         explicit Tensor() = default;
@@ -56,19 +57,21 @@ namespace qwi::tensor {
             std::vector<size_t> dims,
             bool need_alloc = false,
             base::DeviceType device_type = base::DeviceType::kDeviceCPU,
-            std::shared_ptr<base::DeviceAllocator> allocator = nullptr,
+            const std::shared_ptr<base::DeviceAllocator>& allocator = nullptr,
             const std::shared_ptr<base::Buffer> &buffer = nullptr
         );
         base::ReturnStatus init_buffer(
-            std::shared_ptr<base::DeviceAllocator> allocator,
-            base::DataType data_type,
+            const std::shared_ptr<base::DeviceAllocator>& allocator,
+            base::DeviceType device_type,
             bool need_alloc,
             const std::shared_ptr<base::Buffer> &buffer = nullptr
         );
         base::ReturnStatus allocate(
-            std::shared_ptr<base::DeviceAllocator> allocator,
-            bool need_realloc = false
+            const std::shared_ptr<base::DeviceAllocator>& allocator,
+            size_t byte_size,
+            base::DeviceType device_type
         );
+        [[nodiscard]] size_t byte_size() const;
     };
 
     Tensor empty(
