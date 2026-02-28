@@ -43,6 +43,16 @@ namespace qwi::base {
         NoAllocator = -3,  // 无分配器
     };
 
+    enum class DataType {
+        kDataUnknown = 0,
+        kDataFloat32,
+        kDataFloat16,
+        kDataFloat8,
+        kDataInt32,
+        kDataInt16,
+        kDataInt8,
+    };
+
     class NoCopyable {
     protected:
         NoCopyable() = default;

@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.22)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
+#set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
+# 自动检测CUDA路径
+if(EXISTS /usr/local/cuda/bin/nvcc)
+    set(CUDA_DIR "/usr/local/cuda")
+    set(CMAKE_CUDA_COMPILER "${CUDA_DIR}/bin/nvcc")
+else()
+    # 尝试从环境变量或PATH查找
+    find_program(CMAKE_CUDA_COMPILER nvcc PATHS ENV CUDACXX ENV CUDA_HOME ENV CUDA_ROOT)
+    if(CMAKE_CUDA_COMPILER)
+        get_filename_component(CUDA_BIN_DIR ${CMAKE_CUDA_COMPILER} DIRECTORY)
+        get_filename_component(CUDA_DIR ${CUDA_BIN_DIR} DIRECTORY)
+    else()
+        message(FATAL_ERROR "CUDA not found. Please install CUDA or set CUDACXX environment variable.")
+    endif()
+endif()
+message(STATUS "CUDA found at: ${CUDA_DIR}")
 project(QWen3Infer LANGUAGES CXX CUDA)
 
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -15,6 +30,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 include_directories(/usr/local/cuda-12.8/targets/x86_64-linux/include)
+#include_directories(${CUDA_DIR}/include)
+message(STATUS "Add CUDA Include at: ${CUDA_DIR}/include")
+# Windows CUDA路径（仅用于参考）
+# C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\include
 
 include(CheckSymbolExists)
 check_symbol_exists(posix_memalign "stdlib.h" HAVE_POSIX_MEMALIGN)
@@ -146,8 +165,14 @@ file(
         src/source/base/*.cpp
 )
 file(
+        GLOB_RECURSE DIR_TENSOR CONFIGURE_DEPENDS
+        src/include/tensor/*.h
+        src/source/tensor/*.cpp
+)
+file(
         GLOB_RECURSE DIR_SOURCES CONFIGURE_DEPENDS
         ${DIR_BASE}
+        ${DIR_TENSOR}
 )
 
 add_executable(
