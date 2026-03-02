@@ -3,85 +3,86 @@
 //
 
 
+#include <utility>
+#include <cstring>
+
 #include "../../include/tensor/tensorbase.h"
 
 
 namespace qwi::tensor {
     Tensor::Tensor(
         const base::DataType data_type,
-        const size_t dim0, const bool need_alloc,
+        const size_t dim0,
         const base::DeviceType device_type,
         const std::shared_ptr<base::DeviceAllocator> &allocator,
         const std::shared_ptr<base::Buffer> &buffer
     ) : Tensor(
         data_type, std::vector{dim0},
-        need_alloc, device_type, allocator, buffer
+        device_type, allocator, buffer
     ) {}
 
     Tensor::Tensor(
         const base::DataType data_type,
         const size_t dim0, const size_t dim1,
-        const bool need_alloc,
         const base::DeviceType device_type,
         const std::shared_ptr<base::DeviceAllocator> &allocator,
         const std::shared_ptr<base::Buffer> &buffer
     ) : Tensor(
         data_type, std::vector{dim0, dim1},
-        need_alloc, device_type, allocator, buffer
+        device_type, allocator, buffer
     ) {}
 
     Tensor::Tensor(
         const base::DataType data_type,
         const size_t dim0, const size_t dim1,
-        const size_t dim2, const bool need_alloc,
+        const size_t dim2,
         const base::DeviceType device_type,
         const std::shared_ptr<base::DeviceAllocator> &allocator,
         const std::shared_ptr<base::Buffer> &buffer
     ) : Tensor(
         data_type, std::vector{dim0, dim1, dim2},
-        need_alloc, device_type, allocator, buffer
+        device_type, allocator, buffer
     ) {}
 
     Tensor::Tensor(
         const base::DataType data_type,
         const size_t dim0, const size_t dim1,
         const size_t dim2, const size_t dim3,
-        const bool need_alloc,
         const base::DeviceType device_type,
         const std::shared_ptr<base::DeviceAllocator> &allocator,
         const std::shared_ptr<base::Buffer> &buffer
     ) : Tensor(
         data_type, std::vector{dim0, dim1, dim2, dim3},
-        need_alloc, device_type, allocator, buffer
+        device_type, allocator, buffer
     ) {}
 
     Tensor::Tensor(
         const base::DataType data_type,
         std::vector<size_t> dims,
-        bool need_alloc,
         base::DeviceType device_type,
         const std::shared_ptr<base::DeviceAllocator>& allocator,
         const std::shared_ptr<base::Buffer> &buffer
     ) : dims_(std::move(dims)), data_type_(data_type) {
-        const auto byte_size = reduce_dimension(
+        const auto element_count = reduce_dimension(
             this->dims_.begin(),
             this->dims_.end(),
             size_t{1}
         );
-        this->size_ = byte_size;
+        this->size_ = element_count;
 
-        if (need_alloc && allocator && !buffer) {
-            this->allocate(
-                allocator, this->byte_size(), device_type
-            );
-        } else {
-            this->init_buffer(
-                allocator,
-                device_type,
-                need_alloc,
-                buffer
-            );
+        if (allocator && !buffer) {
+            if (device_type != base::DeviceType::kDeviceUnknown) {
+                this->allocate(
+                    allocator, this->byte_size(), device_type
+                );
+            }
         }
+
+        this->init_buffer(
+            allocator,
+            device_type,
+            buffer
+        );
     }
 
     base::ReturnStatus Tensor::allocate(
@@ -123,18 +124,74 @@ namespace qwi::tensor {
         ) * this->size_;
     }
 
+    base::ReturnStatus Tensor::to_float() {
+        this->data_type_ = base::DataType::kDataFloat32;
+        return base::ReturnStatus::Success;
+    }
+
+    // base::ReturnStatus Tensor::to_int8() {
+    //     this->data_type_ = base::DataType::kDataInt8;
+    //     return base::ReturnStatus::Success;
+    // }
+
+    base::ReturnStatus Tensor::set_dims(std::vector<size_t> dims) {
+        if (dims_.empty() || this->size_ == 0) {
+            this->dims_ = std::move(dims);
+            const auto element_count = reduce_dimension(
+                this->dims_.begin(),
+                this->dims_.end(),
+                size_t{1}
+            );
+            this->size_ = element_count;
+            return base::ReturnStatus::Success;
+        }
+
+        LOG(ERROR) << "Tensor::set_dims() must be zero size!" << std::endl;
+        return base::ReturnStatus::Error;
+    }
+
+    std::vector<size_t> Tensor::strides() const {
+        std::vector<size_t> strides;
+        if (!dims_.empty()) {
+            for (int32_t i = 0; i < dims_.size() - 1; ++i) {
+                size_t stride = reduce_dimension(
+                    dims_.begin() + i + 1, dims_.end(), size_t{1}
+                );
+                strides.push_back(stride);
+            }
+            strides.push_back(size_t{1});
+        }
+        return strides;
+    }
+
+    size_t Tensor::ndims() const {
+        return this->dims_.size();
+    }
+
     base::ReturnStatus Tensor::init_buffer(
         const std::shared_ptr<base::DeviceAllocator>& allocator,
         base::DeviceType device_type,
-        bool need_alloc,
         const std::shared_ptr<base::Buffer> &buffer
     ) {
-        if (!allocator && !need_alloc) {
-            // 无分配器并且不需要分配说明且buffer非空
+        if (!allocator && buffer) {
+            // 无分配器说明且buffer非空
             // 说明是外部数据
 
             this->buffer_ = buffer;
             return base::ReturnStatus::Success;
+        }
+
+        if (device_type == base::DeviceType::kDeviceUnknown) {
+            // 说明暂时不需要分配
+            auto memory_buffer = base::MemoryBuffer(
+                nullptr, this->byte_size(), true, 0,
+                base::DeviceType::kDeviceUnknown
+            );
+            this->buffer_ = std::make_shared<base::Buffer>(
+                memory_buffer,
+                nullptr, false
+            );
+            return base::ReturnStatus::NoAllocator;
         }
 
         const auto state = this->allocate(

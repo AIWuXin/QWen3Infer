@@ -25,15 +25,14 @@ TEST_F(TensorTest, DefaultConstructor) {
 
 // 测试 1D Tensor 构造函数（不分配内存）
 TEST_F(TensorTest, Constructor1D_NoAlloc) {
-    tensor::Tensor t(
+    const tensor::Tensor t(
         base::DataType::kDataFloat32,
         10,  // dim0
-        false,  // need_alloc
-        base::DeviceType::kDeviceCPU,
+        base::DeviceType::kDeviceUnknown,
         cpu_allocator_
     );
     // 不分配内存，byte_size 应该为 0
-    EXPECT_EQ(t.byte_size(), 0);
+    EXPECT_EQ(t.ptr<float *>(), nullptr);
 }
 
 // 测试 1D Tensor 构造函数（分配内存）
@@ -41,7 +40,6 @@ TEST_F(TensorTest, Constructor1D_WithAlloc) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         10,  // dim0 = 10
-        true,  // need_alloc
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -54,7 +52,6 @@ TEST_F(TensorTest, Constructor2D) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         3, 4,  // 3x4 matrix
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -66,7 +63,6 @@ TEST_F(TensorTest, Constructor3D) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         2, 3, 4,  // 2x3x4
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -78,7 +74,6 @@ TEST_F(TensorTest, Constructor4D) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         2, 3, 4, 5,  // 2x3x4x5
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -91,7 +86,6 @@ TEST_F(TensorTest, ConstructorVector) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         dims,
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -103,32 +97,32 @@ TEST_F(TensorTest, ConstructorVector) {
 TEST_F(TensorTest, DifferentDataTypes) {
     // Float32
     {
-        tensor::Tensor t(base::DataType::kDataFloat32, 10, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(base::DataType::kDataFloat32, 10, base::DeviceType::kDeviceCPU, cpu_allocator_);
         EXPECT_EQ(t.byte_size(), 10 * 4);
     }
     // Float16
     {
-        tensor::Tensor t(base::DataType::kDataFloat16, 10, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(base::DataType::kDataFloat16, 10, base::DeviceType::kDeviceCPU, cpu_allocator_);
         EXPECT_EQ(t.byte_size(), 10 * 2);
     }
     // Float8
     {
-        tensor::Tensor t(base::DataType::kDataFloat8, 10, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(base::DataType::kDataFloat8, 10, base::DeviceType::kDeviceCPU, cpu_allocator_);
         EXPECT_EQ(t.byte_size(), 10 * 1);
     }
     // Int32
     {
-        tensor::Tensor t(base::DataType::kDataInt32, 10, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(base::DataType::kDataInt32, 10, base::DeviceType::kDeviceCPU, cpu_allocator_);
         EXPECT_EQ(t.byte_size(), 10 * 4);
     }
     // Int16
     {
-        tensor::Tensor t(base::DataType::kDataInt16, 10, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(base::DataType::kDataInt16, 10, base::DeviceType::kDeviceCPU, cpu_allocator_);
         EXPECT_EQ(t.byte_size(), 10 * 2);
     }
     // Int8
     {
-        tensor::Tensor t(base::DataType::kDataInt8, 10, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(base::DataType::kDataInt8, 10, base::DeviceType::kDeviceCPU, cpu_allocator_);
         EXPECT_EQ(t.byte_size(), 10 * 1);
     }
 }
@@ -138,12 +132,11 @@ TEST_F(TensorTest, NullAllocator) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         10,
-        true,
         base::DeviceType::kDeviceCPU,
         nullptr  // null allocator
     );
     // 应该无法分配内存
-    EXPECT_EQ(t.byte_size(), 0);
+    EXPECT_EQ(t.ptr<float *>(), nullptr);
 }
 
 // 测试外部 buffer 传入
@@ -157,10 +150,9 @@ TEST_F(TensorTest, ExternalBuffer) {
         memory_buffer, cpu_allocator_, false
     );
 
-    tensor::Tensor t(
+    const tensor::Tensor t(
         base::DataType::kDataFloat32,
         100,
-        false,  // 不需要分配，使用外部 buffer
         base::DeviceType::kDeviceCPU,
         nullptr,
         external_buffer
@@ -188,7 +180,6 @@ TEST_F(TensorTest, LargeTensor) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         dims,
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -200,7 +191,6 @@ TEST_F(TensorTest, ZeroDimension) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         0,  // 0 元素
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -212,7 +202,6 @@ TEST_F(TensorTest, MultiDimWithZero) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         3, 0, 4,  // 3x0x4 = 0 元素
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -225,7 +214,6 @@ TEST_F(TensorTest, EmptyVectorDims) {
     tensor::Tensor t(
         base::DataType::kDataFloat32,
         dims,
-        true,
         base::DeviceType::kDeviceCPU,
         cpu_allocator_
     );
@@ -248,7 +236,7 @@ TEST_F(TensorTest, MixedDataTypesAndDims) {
     };
 
     for (const auto& tc : test_cases) {
-        tensor::Tensor t(tc.dtype, tc.dims, true, base::DeviceType::kDeviceCPU, cpu_allocator_);
+        tensor::Tensor t(tc.dtype, tc.dims, base::DeviceType::kDeviceCPU, cpu_allocator_);
 
         size_t expected_elems = 1;
         for (auto d : tc.dims) {
@@ -263,9 +251,15 @@ TEST_F(TensorTest, DirectAllocate) {
     tensor::Tensor t;
     size_t byte_size = 100 * sizeof(float);
 
-    auto status = t.allocate(cpu_allocator_, byte_size, base::DeviceType::kDeviceCPU);
+    const auto status = t.allocate(
+        cpu_allocator_, byte_size,
+        base::DeviceType::kDeviceCPU
+    );
+    t.set_dims({100});
+    t.to_float();
 
     EXPECT_EQ(status, base::ReturnStatus::Success);
+    EXPECT_NE(t.ptr<float *>(), nullptr);
     EXPECT_EQ(t.byte_size(), byte_size);
 }
 
@@ -285,7 +279,7 @@ TEST_F(TensorTest, AllocateZeroBytes) {
 
 // 测试 init_buffer 方法 - 外部数据路径
 TEST_F(TensorTest, InitBufferExternal) {
-    size_t byte_size = 100 * sizeof(float);
+    constexpr size_t byte_size = 100 * sizeof(float);
     auto memory_buffer = base::MemoryBuffer(
         nullptr, byte_size, true, 0, base::DeviceType::kDeviceCPU
     );
@@ -293,31 +287,40 @@ TEST_F(TensorTest, InitBufferExternal) {
         memory_buffer, cpu_allocator_, false
     );
 
-    tensor::Tensor t;
-    auto status = t.init_buffer(
-        nullptr,           // 无 allocator
-        base::DeviceType::kDeviceCPU,
-        false,             // 不需要分配
-        external_buffer    // 外部 buffer
+    const tensor::Tensor t(
+        base::DataType::kDataFloat32,
+        100, base::DeviceType::kDeviceCPU,
+        nullptr, external_buffer
     );
 
-    EXPECT_EQ(status, base::ReturnStatus::Success);
     EXPECT_EQ(t.byte_size(), byte_size);
 }
 
-// 测试 init_buffer 方法 - 需要分配路径
-TEST_F(TensorTest, InitBufferNeedAlloc) {
-    // 先创建一个带维度的 Tensor
-    tensor::Tensor t(base::DataType::kDataFloat32, std::vector<size_t>{10, 10}, false);
-
-    auto status = t.init_buffer(
-        cpu_allocator_,
-        base::DeviceType::kDeviceCPU,
-        true  // 需要分配
+TEST_F(TensorTest, ItemTest) {
+    auto memory_buffer = base::MemoryBuffer(
+        nullptr, 100 * sizeof(float),
+        true, 0, base::DeviceType::kDeviceCPU
+    );
+    auto external_buffer = std::make_shared<base::Buffer>(
+        memory_buffer, cpu_allocator_, false
     );
 
-    EXPECT_EQ(status, base::ReturnStatus::Success);
-    EXPECT_EQ(t.byte_size(), 100 * sizeof(float));
+    tensor::Tensor tensor(
+        base::DataType::kDataFloat32,
+        10, 10, base::DeviceType::kDeviceCPU,
+        nullptr, external_buffer
+    );
+    for (size_t i = 0; i < 10; ++i) {
+        for (size_t j = 0; j < 10; ++j) {
+            tensor.index<float>({i, j}) = static_cast<float>(i);
+        }
+    }
+
+    for (size_t i = 0; i < 10; ++i) {
+        for (size_t j = 0; j < 10; ++j) {
+            EXPECT_EQ(tensor.index<float>({i, j}), static_cast<float>(i));
+        }
+    }
 }
 
 // 主函数由 gtest_main 提供
