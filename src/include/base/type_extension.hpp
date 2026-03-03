@@ -6,6 +6,8 @@
 #define QWEN3INFER_TYPE_EXTENSION_HPP
 
 
+#include <cuda_runtime_api.h>
+#include <driver_types.h>
 #include <glog/logging.h>
 
 
@@ -41,6 +43,7 @@ namespace qwi::base {
         ErrorAllocating = -2,  // 分配内存时发生错误
         ZeroByteSize = 2,  // 零字节长度
         NoAllocator = -3,  // 无分配器
+        NotImplement = -4  // 未实现的函数
     };
 
     enum class DataType {
@@ -53,10 +56,32 @@ namespace qwi::base {
         kDataInt8,
     };
 
+    enum class LayerType {
+        kLayerUnknown = 0,
+        kLayerLinear,
+        kLayerConvolution,
+        kLayerElementWise,
+        kLayerMatMul,
+        kLayerRMSNorm,
+        kLayerSoftmax,
+        kLayerRope,
+        kLayerSwiGelu,
+        kLayerMultiHeadAttention,
+    };
+
+    enum class ElementWiseType {
+        kElementWiseUnknown = 0,
+        kElementAdd,
+        kElementSubtract,
+        kElementMultiply,
+        kElementDivide,
+    };
+
     class NoCopyable {
     protected:
         NoCopyable() = default;
         ~NoCopyable() = default;
+    public:
         NoCopyable(const NoCopyable&) = delete;
         NoCopyable& operator=(const NoCopyable&) = delete;
     };
@@ -93,6 +118,78 @@ namespace qwi::base {
                 return 0;
         }
     }
+
+    class Status {
+    public:
+        explicit Status(
+            ReturnStatus code = ReturnStatus::Success,
+            std::string err_message = ""
+        ) : code_(code), message_(std::move(err_message)) {}
+        Status(const Status& other) = default;
+        Status& operator=(const Status& other) = default;
+        Status& operator=(const ReturnStatus code){
+            this->code_ = code;
+            return *this;
+        }
+
+        bool operator==(const ReturnStatus code) const {
+            if (code_ == code) {
+                return true;
+            }
+            return false;
+        }
+
+        bool operator!=(const ReturnStatus code) const {
+            return !(*this == code);
+        }
+
+        explicit operator int() const {
+            return static_cast<int>(this->code_);
+        }
+
+        explicit operator bool() const {
+            return static_cast<int>(this->code_) >= 0;
+        }
+
+        [[nodiscard]] ReturnStatus get_code() const {
+            return this->code_;
+        }
+
+        [[nodiscard]] const std::string& get_message() const {
+            return this->message_;
+        }
+
+        void set_err_msg(
+            const std::string& err_msg
+        ) {
+            this->message_ = err_msg;
+        }
+    private:
+        ReturnStatus code_ = ReturnStatus::Success;
+        std::string message_;
+    };
+
+#define STATUS_CHECK(call)                                                                 \
+    do {                                                                                     \
+        const base::Status& status = call;                                                     \
+        if (!status) {                                                                         \
+            const size_t buf_size = 512;                                                         \
+            char buf[buf_size];                                                                  \
+            snprintf(buf, buf_size - 1,                                                          \
+            "Infer error\n File:%s Line:%d\n Error code:%d\n Error msg:%s\n", __FILE__, \
+            __LINE__, int(status), status.get_message().c_str());                       \
+            LOG(FATAL) << buf;                                                                   \
+        }                                                                                      \
+    } while (0)
+
+    struct CudaConfig {
+        cudaStream_t stream = nullptr;
+        ~CudaConfig() {
+            if (stream) {
+                cudaStreamDestroy(stream);
+            }
+        }
+    };
 }
 
 

@@ -170,9 +170,16 @@ file(
         src/source/tensor/*.cpp
 )
 file(
+        GLOB_RECURSE DIR_OPS CONFIGURE_DEPENDS
+        src/include/ops/*.h
+        src/source/ops/*.cu
+        src/source/ops/*.cpp
+)
+file(
         GLOB_RECURSE DIR_SOURCES CONFIGURE_DEPENDS
         ${DIR_BASE}
         ${DIR_TENSOR}
+        ${DIR_OPS}
 )
 
 add_executable(
