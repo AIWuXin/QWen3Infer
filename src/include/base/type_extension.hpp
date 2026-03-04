@@ -43,7 +43,8 @@ namespace qwi::base {
         ErrorAllocating = -2,  // 分配内存时发生错误
         ZeroByteSize = 2,  // 零字节长度
         NoAllocator = -3,  // 无分配器
-        NotImplement = -4  // 未实现的函数
+        NotImplement = -4,  // 未实现的函数
+        InvalidArgument = -5  // 非法的参数
     };
 
     enum class DataType {

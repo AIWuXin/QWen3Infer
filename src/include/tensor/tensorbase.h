@@ -88,14 +88,19 @@ namespace qwi::tensor {
         template <typename T>
         const T& index(size_t offset) const;
         template <typename T>
-        T& index(std::vector<size_t> indices);
+        T& index(const std::vector<size_t>& indices);
         template <typename T>
-        const T& index(std::vector<size_t> indices) const;
+        const T& index(const std::vector<size_t>& indices) const;
         template <typename T>
         T& operator[](std::vector<size_t> indices);
         template <typename T>
         const T& operator[](std::vector<size_t> indices) const;
         [[nodiscard]] size_t ndims() const;
+        [[nodiscard]] bool is_empty() const;
+        [[nodiscard]] base::DataType get_data_type() const;
+        [[nodiscard]] base::DeviceType get_device_type() const;
+        [[nodiscard]] size_t dim(size_t idx) const;
+        [[nodiscard]] std::vector<size_t> dims() const;
     };
 
     Tensor empty(
@@ -174,7 +179,7 @@ namespace qwi::tensor {
     }
 
     template<typename T>
-    T & Tensor::index(const std::vector<size_t> indices) {
+    T & Tensor::index(const std::vector<size_t>& indices) {
         if (indices.size() != this->ndims()) {
             LOG(FATAL) << "indices size must equal ndims!" << std::endl;
             throw std::out_of_range("indices size must equal ndims!");
@@ -201,7 +206,7 @@ namespace qwi::tensor {
     }
 
     template<typename T>
-    const T & Tensor::index(const std::vector<size_t> indices) const {
+    const T & Tensor::index(const std::vector<size_t>& indices) const {
         if (indices.size() != this->ndims()) {
             LOG(FATAL) << "indices size must equal ndims!" << std::endl;
             throw std::out_of_range("indices size must equal ndims!");

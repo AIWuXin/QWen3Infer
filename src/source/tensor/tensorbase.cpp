@@ -168,6 +168,33 @@ namespace qwi::tensor {
         return this->dims_.size();
     }
 
+    bool Tensor::is_empty() const {
+        return this->size_ == 0
+        || this->buffer_ == nullptr
+        || this->buffer_->get_ptr() == nullptr;
+    }
+
+    base::DataType Tensor::get_data_type() const {
+        return this->data_type_;
+    }
+
+    base::DeviceType Tensor::get_device_type() const {
+        return this->buffer_->get_device_type();
+    }
+
+    size_t Tensor::dim(size_t idx) const {
+        if (idx >= this->ndims()) {
+            LOG(ERROR) << "Tensor::dim() index out of bounds!" << std::endl;
+            throw std::out_of_range("Tensor::dim() index out of bounds!");
+        }
+
+        return this->dims_[idx];
+    }
+
+    std::vector<size_t> Tensor::dims() const {
+        return this->dims_;
+    }
+
     base::ReturnStatus Tensor::init_buffer(
         const std::shared_ptr<base::DeviceAllocator>& allocator,
         base::DeviceType device_type,

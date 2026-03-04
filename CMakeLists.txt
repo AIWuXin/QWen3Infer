@@ -174,6 +174,7 @@ file(
         src/include/ops/*.h
         src/source/ops/*.cu
         src/source/ops/*.cpp
+        src/source/ops/*.hpp
 )
 file(
         GLOB_RECURSE DIR_SOURCES CONFIGURE_DEPENDS
