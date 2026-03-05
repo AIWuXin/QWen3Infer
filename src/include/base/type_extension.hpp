@@ -170,17 +170,17 @@ namespace qwi::base {
         std::string message_;
     };
 
-#define STATUS_CHECK(call)                                                                 \
-    do {                                                                                     \
-        const base::Status& status = call;                                                     \
-        if (!status) {                                                                         \
-            const size_t buf_size = 512;                                                         \
-            char buf[buf_size];                                                                  \
-            snprintf(buf, buf_size - 1,                                                          \
-            "Infer error\n File:%s Line:%d\n Error code:%d\n Error msg:%s\n", __FILE__, \
-            __LINE__, int(status), status.get_message().c_str());                       \
-            LOG(FATAL) << buf;                                                                   \
-        }                                                                                      \
+#define STATUS_CHECK(call)                                                               \
+    do {                                                                                 \
+        const base::Status& status = call;                                               \
+        if (!status) {                                                                   \
+            const size_t buf_size = 512;                                                 \
+            char buf[buf_size];                                                          \
+            snprintf(buf, buf_size - 1,                                                  \
+            "Infer error\n File:%s Line:%d\n Error code:%d\n Error msg:%s\n", __FILE__,  \
+            __LINE__, int(status), status.get_message().c_str());                        \
+            LOG(FATAL) << buf;                                                           \
+        }                                                                                \
     } while (0)
 
     struct CudaConfig {
@@ -191,6 +191,21 @@ namespace qwi::base {
             }
         }
     };
+
+#define UNUSED(expr)   \
+    do {               \
+        (void)(expr);  \
+    } while (0)
+
+    // 模板化的操作函数
+    template<ElementWiseType Op, typename T>
+    T element_wise_op(T a, T b) {
+        if constexpr (Op == ElementWiseType::kElementAdd) return a + b;
+        else if constexpr (Op == ElementWiseType::kElementSubtract) return a - b;
+        else if constexpr (Op == ElementWiseType::kElementMultiply) return a * b;
+        else if constexpr (Op == ElementWiseType::kElementDivide) return a / b;
+        else throw std::runtime_error("Unknown element wise type");
+    }
 }
 
 

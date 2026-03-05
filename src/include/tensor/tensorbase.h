@@ -101,6 +101,7 @@ namespace qwi::tensor {
         [[nodiscard]] base::DeviceType get_device_type() const;
         [[nodiscard]] size_t dim(size_t idx) const;
         [[nodiscard]] std::vector<size_t> dims() const;
+        [[nodiscard]] size_t size() const;
     };
 
     Tensor empty(

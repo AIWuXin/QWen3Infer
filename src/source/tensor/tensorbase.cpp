@@ -195,6 +195,10 @@ namespace qwi::tensor {
         return this->dims_;
     }
 
+    size_t Tensor::size() const {
+        return this->size_;
+    }
+
     base::ReturnStatus Tensor::init_buffer(
         const std::shared_ptr<base::DeviceAllocator>& allocator,
         base::DeviceType device_type,

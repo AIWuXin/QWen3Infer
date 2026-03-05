@@ -181,6 +181,14 @@ namespace qwi::ops {
         this->outputs_.at(idx) = output;
     }
 
+    size_t CommonLayer::input_size() const {
+        return this->inputs_.size();
+    }
+
+    size_t CommonLayer::output_size() const {
+        return this->outputs_.size();
+    }
+
     base::Status CommonLayer::forward(
         const tensor::Tensor &input0,
         const tensor::Tensor &output0

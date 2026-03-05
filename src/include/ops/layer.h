@@ -170,6 +170,8 @@ namespace qwi::ops {
         tensor::Tensor &get_output(size_t idx) override;
         void set_input(size_t idx, const tensor::Tensor &input) override;
         void set_output(size_t idx, const tensor::Tensor &output) override;
+        size_t input_size() const override;
+        size_t output_size() const override;
     protected:
         std::vector<tensor::Tensor> inputs_;
         std::vector<tensor::Tensor> outputs_;

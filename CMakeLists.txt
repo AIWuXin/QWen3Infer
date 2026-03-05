@@ -157,6 +157,15 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 find_package(GTest REQUIRED)
 find_package(glog REQUIRED)
 find_package(Armadillo REQUIRED)
+find_package(OpenMP COMPONENTS CXX)
+
+if(OpenMP_CXX_FOUND)
+    message(STATUS "✓ OpenMP found, parallel acceleration enabled")
+    add_compile_definitions(USE_OPENMP)
+else()
+    message(WARNING "✗ OpenMP NOT found, using sequential fallback")
+    add_compile_definitions(NO_OPENMP)
+endif()
 
 file(
         GLOB_RECURSE DIR_BASE CONFIGURE_DEPENDS
@@ -175,6 +184,7 @@ file(
         src/source/ops/*.cu
         src/source/ops/*.cpp
         src/source/ops/*.hpp
+        src/source/ops/*.cuh
 )
 file(
         GLOB_RECURSE DIR_SOURCES CONFIGURE_DEPENDS
@@ -194,8 +204,18 @@ target_link_libraries(
         glog::glog
 )
 
-set_target_properties(QWen3Infer PROPERTIES
-        CUDA_SEPARABLE_COMPILATION ON)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(
+            QWen3Infer
+            OpenMP::OpenMP_CXX
+    )
+endif()
+
+set_target_properties(
+        QWen3Infer 
+        PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+)
 
 # ==========================================
 # 测试配置
@@ -214,9 +234,14 @@ file(
         test/test_tensor/*.h
 )
 file(
+        GLOB_RECURSE TEST_OPS CONFIGURE_DEPENDS
+        test/test_ops/*.cpp
+)
+file(
         GLOB_RECURSE TEST_SRCS CONFIGURE_DEPENDS
         ${TEST_BASE}
         ${TEST_TENSOR}
+        ${TEST_OPS}
 )
 
 if (TEST_BASE)
@@ -225,7 +250,6 @@ if (TEST_BASE)
             ${DIR_SOURCES}
             ${TEST_BASE}
     )
-
     target_link_libraries(
             test_base
             glog::glog
@@ -233,6 +257,12 @@ if (TEST_BASE)
             GTest::gtest_main
             GTest::gmock
     )
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(
+                test_base
+                OpenMP::OpenMP_CXX
+        )
+    endif ()
     set_target_properties(
             test_base PROPERTIES
             CUDA_SEPARABLE_COMPILATION ON
@@ -246,7 +276,6 @@ if (TEST_TENSOR)
             ${DIR_SOURCES}
             ${TEST_TENSOR}
     )
-
     target_link_libraries(
             test_tensor
             glog::glog
@@ -254,9 +283,41 @@ if (TEST_TENSOR)
             GTest::gtest_main
             GTest::gmock
     )
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(
+                test_tensor
+                OpenMP::OpenMP_CXX
+        )
+    endif ()
     set_target_properties(
             test_tensor PROPERTIES
             CUDA_SEPARABLE_COMPILATION ON
     )
     add_test(NAME TestTensor COMMAND test_tensor)
+endif ()
+
+if (TEST_OPS)
+    add_executable(
+            test_ops
+            ${DIR_SOURCES}
+            ${TEST_OPS}
+    )
+    target_link_libraries(
+            test_ops
+            glog::glog
+            GTest::gtest
+            GTest::gtest_main
+            GTest::gmock
+    )
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(
+                test_ops
+                OpenMP::OpenMP_CXX
+        )
+    endif ()
+    set_target_properties(
+            test_ops PROPERTIES
+            CUDA_SEPARABLE_COMPILATION ON
+    )
+    add_test(NAME TestOps COMMAND test_ops)
 endif ()
