@@ -62,6 +62,7 @@ namespace qwi::base {
         kLayerLinear,
         kLayerConvolution,
         kLayerElementWise,
+        kLayerReduction,
         kLayerMatMul,
         kLayerRMSNorm,
         kLayerSoftmax,
@@ -76,6 +77,22 @@ namespace qwi::base {
         kElementSubtract,
         kElementMultiply,
         kElementDivide,
+    };
+
+    enum class ReductionType {
+        kReduceUnknown = 0,
+
+        // 算术归约
+        kReduceSum,
+        kReduceMean,
+
+        // 极值规约
+        kReduceMax,
+        kReduceMin,
+
+        // 逻辑归约
+        kReductionAll,
+        kReductionAny,
     };
 
     class NoCopyable {

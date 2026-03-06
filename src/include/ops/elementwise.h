@@ -5,7 +5,6 @@
 #ifndef QWEN3INFER_ELEMENTWISE_H
 #define QWEN3INFER_ELEMENTWISE_H
 
-
 #include "layer.h"
 
 

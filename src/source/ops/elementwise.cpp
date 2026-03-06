@@ -3,10 +3,7 @@
 //
 
 
-#include <utility>
-
 #include "../../include/ops/elementwise.h"
-
 #include "kernels_interface.hpp"
 
 
@@ -30,14 +27,14 @@ namespace qwi::ops {
     base::Status Elementwise::check() const {
         const auto input0 = this->get_input(0);
         const auto input1 = this->get_input(1);
-        auto output0 = this->get_output(0);
+        const auto output0 = this->get_output(0);
 
         base::Status status = check_tensor_with_dim(
             input0, this->data_type(),
             this->device_type(), input0.dims()
         );
         if (!status) {
-            LOG(ERROR) << "The input tensor 0 error in the add layer.";
+            LOG(ERROR) << "The input tensor 0 error in the elementwise layer.";
             return status;
         }
 
@@ -46,7 +43,7 @@ namespace qwi::ops {
             this->device_type(), input1.dims()
         );
         if (!status) {
-            LOG(ERROR) << "The input tensor 1 error in the add layer.";
+            LOG(ERROR) << "The input tensor 1 error in the elementwise layer.";
             return status;
         }
 
@@ -55,7 +52,7 @@ namespace qwi::ops {
             this->device_type(), input0.dims()
         );
         if (!status) {
-            LOG(ERROR) << "The output tensor 0 error in the add layer.";
+            LOG(ERROR) << "The output tensor 0 error in the elementwise layer.";
             return status;
         }
 
