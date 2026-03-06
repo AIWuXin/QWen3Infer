@@ -3,78 +3,17 @@
 //
 
 #include "elementwise.cuh"
+#include "math.cuh"
 
 
 namespace qwi::ops::kernel {
     template<base::ElementWiseType Op>
     __launch_bounds__(256, 4)
-    __global__ void elementwise_kernel_cu(
+    __global__ void elementwise_kernel_cu_launch(
         const size_t size, const float* __restrict in0,
         const float* __restrict in1, float* __restrict out0
     ) {
-        auto in0_vec = reinterpret_cast<const float4*>(in0);
-        auto in1_vec = reinterpret_cast<const float4*>(in1);
-        auto out0_vec = reinterpret_cast<float4*>(out0);
-
-        const size_t vec_size = size / 4;  // 处理 4 个一组
-
-        for (
-            size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
-            tid < vec_size; tid += blockDim.x * gridDim.x
-        ) {
-            const float4 in_val0 = in0_vec[tid];
-            const float4 in_val1 = in1_vec[tid];
-            float4 out_val0 = out0_vec[tid];
-
-            if constexpr (Op == base::ElementWiseType::kElementAdd) {
-                out_val0.x = in_val0.x + in_val1.x;
-                out_val0.y = in_val0.y + in_val1.y;
-                out_val0.z = in_val0.z + in_val1.z;
-                out_val0.w = in_val0.w + in_val1.w;
-            } else if constexpr (
-                Op == base::ElementWiseType::kElementSubtract
-            ) {
-                out_val0.x = in_val0.x - in_val1.x;
-                out_val0.y = in_val0.y - in_val1.y;
-                out_val0.z = in_val0.z - in_val1.z;
-                out_val0.w = in_val0.w - in_val1.w;
-            } else if constexpr (
-                Op == base::ElementWiseType::kElementMultiply
-            ) {
-                out_val0.x = in_val0.x * in_val1.x;
-                out_val0.y = in_val0.y * in_val1.y;
-                out_val0.z = in_val0.z * in_val1.z;
-                out_val0.w = in_val0.w * in_val1.w;
-            } else if constexpr (
-                Op == base::ElementWiseType::kElementDivide
-            ) {
-                out_val0.x = __fdividef(in_val0.x, in_val1.x);
-                out_val0.y = __fdividef(in_val0.y, in_val1.y);
-                out_val0.z = __fdividef(in_val0.z, in_val1.z);
-                out_val0.w = __fdividef(in_val0.w, in_val1.w);
-            } else {
-            #ifndef NDEBUG
-                printf("CUDA kernel: unknown op %d, defaulting to nothing to do!\n", static_cast<int>(Op));
-            #endif
-            }
-            out0_vec[tid] = out_val0;
-        }
-
-        for (size_t idx = vec_size * 4 + threadIdx.x; idx < size; idx += blockDim.x) {
-            if constexpr (Op == base::ElementWiseType::kElementAdd) {
-                out0[idx] = in0[idx] + in1[idx];
-            } else if constexpr (Op == base::ElementWiseType::kElementSubtract) {
-                out0[idx] = in0[idx] - in1[idx];
-            } else if constexpr (Op == base::ElementWiseType::kElementMultiply) {
-                out0[idx] = in0[idx] * in1[idx];
-            } else if constexpr (Op == base::ElementWiseType::kElementDivide) {
-                out0[idx] = in0[idx] / in1[idx];
-            } else {
-                #ifndef NDEBUG
-                    printf("CUDA kernel: unknown op %d, defaulting to nothing to do!\n", static_cast<int>(Op));
-                #endif
-            }
-        }
+        elementwise_kernel_cu<Op>(size, in0, in1, out0);
     }
 
     template<base::ElementWiseType Op, typename T>
@@ -87,7 +26,7 @@ namespace qwi::ops::kernel {
         CHECK_EQ(input0.is_empty(), false);
         CHECK_EQ(input1.is_empty(), false);
         CHECK_EQ(output0.is_empty(), false);
-        int32_t size = static_cast<int32_t>(input0.size());
+        const int32_t size = static_cast<int32_t>(input0.size());
 
         CHECK_EQ(size, input1.size());
         CHECK_EQ(size, output0.size());
@@ -100,7 +39,7 @@ namespace qwi::ops::kernel {
         if (stream) {
             auto cuda_stream = static_cast<cudaStream_t>(stream);
             if constexpr (std::is_same_v<T, float>) {
-                elementwise_kernel_cu<Op><<<block_num, thread_num, 0, cuda_stream>>>(
+                elementwise_kernel_cu_launch<Op><<<block_num, thread_num, 0, cuda_stream>>>(
                     size, input0.ptr<float>(),
                     input1.ptr<float>(),
                     output0.ptr<float>()
@@ -111,7 +50,7 @@ namespace qwi::ops::kernel {
             }
         } else {
             if constexpr (std::is_same_v<T, float>) {
-                elementwise_kernel_cu<Op><<<block_num, thread_num>>>(
+                elementwise_kernel_cu_launch<Op><<<block_num, thread_num>>>(
                     size, input0.ptr<float>(),
                     input1.ptr<float>(),
                     output0.ptr<float>()
