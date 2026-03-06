@@ -118,7 +118,11 @@ namespace qwi::ops {
             layer_type,
             data_type,
             device_type
-        ) {}
+        ) {
+            if (device_type == base::DeviceType::kDeviceCUDA) {
+                this->cuda_config_ = std::make_shared<base::CudaConfig>();
+            }
+        }
         base::Status init() override;
         [[nodiscard]] base::Status check() const override;
         base::Status forward(
@@ -172,6 +176,7 @@ namespace qwi::ops {
         void set_output(size_t idx, const tensor::Tensor &output) override;
         size_t input_size() const override;
         size_t output_size() const override;
+        void set_cuda_config(const std::shared_ptr<base::CudaConfig> &config);
     protected:
         std::vector<tensor::Tensor> inputs_;
         std::vector<tensor::Tensor> outputs_;

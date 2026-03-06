@@ -15,10 +15,14 @@ namespace qwi::ops {
         explicit Elementwise(
             base::DataType data_type,
             std::string layer_name,
-            base::DeviceType device_type
+            base::DeviceType device_type,
+            base::ElementWiseType op_type = base::ElementWiseType::kElementAdd
         );
         [[nodiscard]] base::Status check() const override;
         base::Status forward() override;
+        base::ElementWiseType get_op_type() const;
+    private:
+        base::ElementWiseType op_type_;
     };
 }
 

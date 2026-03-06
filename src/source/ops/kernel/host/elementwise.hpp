@@ -9,7 +9,6 @@
     #include <omp.h>
 #endif
 
-#include <armadillo>
 #include "../../../../include/tensor/tensorbase.h"
 
 
@@ -30,19 +29,32 @@ namespace qwi::ops::kernel {
         CHECK_EQ(input0.dims() == input1.dims(), true);
         CHECK_EQ(output0.dims() == input0.dims(), true);
 
-        const T* in0_ptr = input0.ptr<T>();
-        const T* in1_ptr = input1.ptr<T>();
-        T* out0_ptr = output0.ptr<T>();
+        #ifdef USE_OPENMP
+        constexpr size_t SIMD_BYTES = 32;  // AVX2
+        constexpr size_t UNROLL = SIMD_BYTES / sizeof(T);  // float=8, double=4
+
+        const T* __restrict in0_ptr = input0.ptr<T>();
+        const T* __restrict in1_ptr = input1.ptr<T>();
+        T* __restrict out0_ptr = output0.ptr<T>();
         const size_t n = input0.size();
 
-        #ifdef USE_OPENMP
-        if (n >= 4096) {
-            #pragma omp parallel for schedule(static)
-            for (size_t i = 0; i < n; ++i) {
-                out0_ptr[i] = base::element_wise_op<Op>(in0_ptr[i], in1_ptr[i]);
+        if (n >= 256*256) {
+            #pragma omp parallel for schedule(static, 1024)
+            for (size_t i = 0; i < n; i += UNROLL) {
+                size_t end = std::min(i + UNROLL, n);
+                #pragma unroll
+                for (size_t j = 0; j < UNROLL && i + j < end; ++j) {
+                    out0_ptr[i+j] = base::element_wise_op<Op>(
+                        in0_ptr[i+j], in1_ptr[i+j]
+                    );
+                }
             }
             return;
         }
+        #else
+            const T* in0_ptr = input0.ptr<T>();
+            const T* in1_ptr = input1.ptr<T>();
+            T* out0_ptr = output0.ptr<T>();
         #endif
 
         for (size_t i = 0; i < n; ++i) {

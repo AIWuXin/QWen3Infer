@@ -478,7 +478,7 @@ TEST_F(ElementwiseTest, Add_4096x4096) {
 
 // 对比测试：串行 vs OpenMP（通过阈值控制）
 TEST_F(ElementwiseTest, ThresholdComparison) {
-    const size_t size = 10000;  // 刚好超过 4096 阈值
+    constexpr size_t size = 256*256;  // 刚好超过 256*256 阈值
 
     tensor::Tensor input0(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCPU, cpu_allocator_);
     tensor::Tensor input1(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCPU, cpu_allocator_);
@@ -504,11 +504,240 @@ TEST_F(ElementwiseTest, ThresholdComparison) {
         elementwise.forward();
     }, 10, 50);
 
-    std::cout << "[Perf] 10000 elements (OpenMP threshold test): " << avg_ms << " ms/op" << std::endl;
+    std::cout << "[Perf] 256*256 elements (OpenMP threshold test): " << avg_ms << " ms/op" << std::endl;
 
     #ifdef USE_OPENMP
     std::cout << "[Perf] OpenMP enabled, max threads: " << omp_get_max_threads() << std::endl;
     #else
     std::cout << "[Perf] OpenMP disabled (sequential)" << std::endl;
     #endif
+}
+
+
+// ==================== CUDA 测试（需要 GPU） ====================
+#include <cuda_runtime.h>
+
+class ElementwiseCudaTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // 检查 CUDA 可用性
+        int device_count = 0;
+        cudaError_t err = cudaGetDeviceCount(&device_count);
+        if (err != cudaSuccess || device_count == 0) {
+            GTEST_SKIP() << "No CUDA device available, skipping CUDA tests";
+        }
+        cuda_allocator_ = base::CudaDeviceAllocatorFactory::get_instance();
+    }
+
+    std::shared_ptr<base::DeviceAllocator> cuda_allocator_;
+};
+
+// CUDA 基础加法测试
+TEST_F(ElementwiseCudaTest, Add1D) {
+    ops::Elementwise elementwise(
+        base::DataType::kDataFloat32,
+        "cuda_add_1d",
+        base::DeviceType::kDeviceCUDA,
+        base::ElementWiseType::kElementAdd
+    );
+
+    constexpr size_t size = 10000;
+    tensor::Tensor input0(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor input1(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor output(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    // 在 CPU 上准备数据，然后拷贝到 GPU
+    std::vector<float> host_data0(size), host_data1(size);
+    for (size_t i = 0; i < size; ++i) {
+        host_data0[i] = static_cast<float>(i);
+        host_data1[i] = 1.0f;
+    }
+
+    // 拷贝到 GPU
+    cudaMemcpy(input0.ptr<float>(), host_data0.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(input1.ptr<float>(), host_data1.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+
+    elementwise.set_input(0, input0);
+    elementwise.set_input(1, input1);
+    elementwise.set_output(0, output);
+
+    auto status = elementwise.forward();
+    EXPECT_TRUE(status);
+
+    // 拷贝结果回 CPU 验证
+    std::vector<float> result(size);
+    cudaMemcpy(result.data(), output.ptr<float>(), size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (size_t i = 0; i < size; ++i) {
+        EXPECT_FLOAT_EQ(result[i], static_cast<float>(i) + 1.0f);
+    }
+}
+
+// CUDA 减法测试
+TEST_F(ElementwiseCudaTest, Subtract2D) {
+    ops::Elementwise elementwise(
+        base::DataType::kDataFloat32,
+        "cuda_sub_2d",
+        base::DeviceType::kDeviceCUDA,
+        base::ElementWiseType::kElementSubtract
+    );
+
+    tensor::Tensor input0(base::DataType::kDataFloat32, 512, 512, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor input1(base::DataType::kDataFloat32, 512, 512, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor output(base::DataType::kDataFloat32, 512, 512, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    const size_t size = 512 * 512;
+    std::vector<float> host0(size, 10.0f), host1(size, 3.0f);
+
+    cudaMemcpy(input0.ptr<float>(), host0.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(input1.ptr<float>(), host1.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+
+    elementwise.set_input(0, input0);
+    elementwise.set_input(1, input1);
+    elementwise.set_output(0, output);
+
+    auto status = elementwise.forward();
+    EXPECT_TRUE(status);
+
+    std::vector<float> result(size);
+    cudaMemcpy(result.data(), output.ptr<float>(), size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (size_t i = 0; i < size; ++i) {
+        EXPECT_FLOAT_EQ(result[i], 7.0f);  // 10 - 3 = 7
+    }
+}
+
+// CUDA 乘法测试
+TEST_F(ElementwiseCudaTest, MultiplyLarge) {
+    ops::Elementwise elementwise(
+        base::DataType::kDataFloat32,
+        "cuda_mul_large",
+        base::DeviceType::kDeviceCUDA,
+        base::ElementWiseType::kElementMultiply
+    );
+
+    constexpr size_t size = 1024 * 1024;  // 1M 元素
+    tensor::Tensor input0(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor input1(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor output(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    std::vector<float> host0(size, 2.0f), host1(size, 3.0f);
+
+    cudaMemcpy(input0.ptr<float>(), host0.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(input1.ptr<float>(), host1.data(), size * sizeof(float), cudaMemcpyHostToDevice);
+
+    elementwise.set_input(0, input0);
+    elementwise.set_input(1, input1);
+    elementwise.set_output(0, output);
+
+    auto status = elementwise.forward();
+    EXPECT_TRUE(status);
+
+    std::vector<float> result(size);
+    cudaMemcpy(result.data(), output.ptr<float>(), size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // 只采样验证几个点（加快测试）
+    EXPECT_FLOAT_EQ(result[0], 6.0f);
+    EXPECT_FLOAT_EQ(result[size/2], 6.0f);
+    EXPECT_FLOAT_EQ(result[size-1], 6.0f);
+}
+
+// CUDA 除法测试
+TEST_F(ElementwiseCudaTest, DivideBasic) {
+    ops::Elementwise elementwise(
+        base::DataType::kDataFloat32,
+        "cuda_div_basic",
+        base::DeviceType::kDeviceCUDA,
+        base::ElementWiseType::kElementDivide
+    );
+
+    tensor::Tensor input0(base::DataType::kDataFloat32, 1000, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor input1(base::DataType::kDataFloat32, 1000, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor output(base::DataType::kDataFloat32, 1000, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    std::vector<float> host0(1000, 100.0f), host1(1000, 4.0f);
+
+    cudaMemcpy(input0.ptr<float>(), host0.data(), 1000 * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(input1.ptr<float>(), host1.data(), 1000 * sizeof(float), cudaMemcpyHostToDevice);
+
+    elementwise.set_input(0, input0);
+    elementwise.set_input(1, input1);
+    elementwise.set_output(0, output);
+
+    auto status = elementwise.forward();
+    EXPECT_TRUE(status);
+
+    std::vector<float> result(1000);
+    cudaMemcpy(result.data(), output.ptr<float>(), 1000 * sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (size_t i = 0; i < 1000; ++i) {
+        EXPECT_FLOAT_EQ(result[i], 25.0f);  // 100 / 4 = 25
+    }
+}
+
+// CUDA 性能测试
+TEST_F(ElementwiseCudaTest, PerfCudaVsCpu) {
+    ops::Elementwise cuda_elementwise(
+        base::DataType::kDataFloat32,
+        "cuda_perf",
+        base::DeviceType::kDeviceCUDA,
+        base::ElementWiseType::kElementAdd
+    );
+
+    ops::Elementwise cpu_elementwise(
+        base::DataType::kDataFloat32,
+        "cpu_perf",
+        base::DeviceType::kDeviceCPU,
+        base::ElementWiseType::kElementAdd
+    );
+
+    constexpr size_t size = 10 * 1024 * 1024;  // 10M 元素
+
+    // CUDA 版本
+    tensor::Tensor cuda_in0(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor cuda_in1(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+    tensor::Tensor cuda_out(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    cudaMemset(cuda_in0.ptr<float>(), 0, size * sizeof(float));
+    cudaMemset(cuda_in1.ptr<float>(), 0, size * sizeof(float));
+
+    cuda_elementwise.set_input(0, cuda_in0);
+    cuda_elementwise.set_input(1, cuda_in1);
+    cuda_elementwise.set_output(0, cuda_out);
+
+    // 预热
+    for (int i = 0; i < 5; ++i) cuda_elementwise.forward();
+    cudaDeviceSynchronize();
+
+    // 计时 CUDA
+    auto start = std::chrono::high_resolution_clock::now();
+    cuda_elementwise.forward();
+    cudaDeviceSynchronize();  // 确保完成
+    auto end = std::chrono::high_resolution_clock::now();
+    auto cuda_ms = std::chrono::duration<double, std::milli>(end - start).count();
+
+    // CPU 版本
+    auto cpu_allocator = base::CpuDeviceAllocatorFactory::get_instance();
+    tensor::Tensor cpu_in0(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCPU, cpu_allocator);
+    tensor::Tensor cpu_in1(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCPU, cpu_allocator);
+    tensor::Tensor cpu_out(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCPU, cpu_allocator);
+
+    cpu_elementwise.set_input(0, cpu_in0);
+    cpu_elementwise.set_input(1, cpu_in1);
+    cpu_elementwise.set_output(0, cpu_out);
+
+    start = std::chrono::high_resolution_clock::now();
+    cpu_elementwise.forward();
+    end = std::chrono::high_resolution_clock::now();
+    auto cpu_ms = std::chrono::duration<double, std::milli>(end - start).count();
+
+    std::cout << "[Perf] 10M elements - CPU: " << cpu_ms << " ms, CUDA: " << cuda_ms << " ms" << std::endl;
+    std::cout << "[Perf] Speedup: " << (cpu_ms / cuda_ms) << "x" << std::endl;
+
+    // 验证 CUDA 结果正确
+    std::vector<float> result(100);
+    cudaMemcpy(result.data(), cuda_out.ptr<float>(), 100 * sizeof(float), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < 100; ++i) {
+        EXPECT_FLOAT_EQ(result[i], 0.0f);  // 0 + 0 = 0
+    }
 }

@@ -189,6 +189,15 @@ namespace qwi::ops {
         return this->outputs_.size();
     }
 
+    void CommonLayer::set_cuda_config(
+        const std::shared_ptr<base::CudaConfig> &config
+    ) {
+        if (!config) {
+            return;
+        }
+        this->cuda_config_ = config;
+    }
+
     base::Status CommonLayer::forward(
         const tensor::Tensor &input0,
         const tensor::Tensor &output0

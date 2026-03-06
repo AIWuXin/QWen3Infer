@@ -1,10 +1,12 @@
 //
-// Created by Administrator on 2026/3/5.
+// Created by Administrator on 2026/3/6.
 //
 
 #ifndef QWEN3INFER_ELEMENTWISE_CUH
 #define QWEN3INFER_ELEMENTWISE_CUH
 
+
+#include <device_launch_parameters.h>
 
 #include "../../../../include/tensor/tensorbase.h"
 
@@ -16,10 +18,7 @@ namespace qwi::ops::kernel {
         const tensor::Tensor& input1,
         tensor::Tensor& output0,
         void* stream
-    ) {
-        LOG(FATAL) << "CUDA kernel not implemented yet!";
-        throw std::runtime_error("CUDA kernel not implemented yet!");
-    }
+    );
 }
 
 

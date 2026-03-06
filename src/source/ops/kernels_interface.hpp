@@ -6,6 +6,8 @@
 #define QWEN3INFER_KERNELS_INTERFACE_HPP
 
 
+#include <functional>
+
 #include "../../include/tensor/tensorbase.h"
 #include "kernel/host/elementwise.hpp"
 #include "kernel/device/elementwise.cuh"

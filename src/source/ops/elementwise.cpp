@@ -14,7 +14,8 @@ namespace qwi::ops {
     Elementwise::Elementwise(
         const base::DataType data_type,
         std::string layer_name,
-        const base::DeviceType device_type
+        const base::DeviceType device_type,
+        const base::ElementWiseType op_type
     ) : CommonLayer(
         device_type,
         base::LayerType::kLayerElementWise,
@@ -23,6 +24,7 @@ namespace qwi::ops {
     ) {
         this->inputs_.resize(size_t{2});
         this->outputs_.resize(size_t{1});
+        this->op_type_ = op_type;
     }
 
     base::Status Elementwise::check() const {
@@ -74,12 +76,50 @@ namespace qwi::ops {
 
         switch (this->data_type()) {
             case base::DataType::kDataFloat32: {
-                kernel::get_element_wise_kernel<
-                    base::ElementWiseType::kElementAdd, float
-                >(this->device_type())(
-                    input0, input1,
-                    output0, stream
-                );
+                switch (this->op_type_) {
+                    case base::ElementWiseType::kElementAdd: {
+                        kernel::get_element_wise_kernel<
+                            base::ElementWiseType::kElementAdd, float
+                        >(this->device_type())(
+                            input0, input1,
+                            output0, stream
+                        );
+                        break;
+                    }
+                    case base::ElementWiseType::kElementSubtract: {
+                        kernel::get_element_wise_kernel<
+                            base::ElementWiseType::kElementSubtract, float
+                        >(this->device_type())(
+                            input0, input1,
+                            output0, stream
+                        );
+                        break;
+                    }
+                    case base::ElementWiseType::kElementMultiply: {
+                        kernel::get_element_wise_kernel<
+                            base::ElementWiseType::kElementMultiply, float
+                        >(this->device_type())(
+                            input0, input1,
+                            output0, stream
+                        );
+                        break;
+                    }
+                    case base::ElementWiseType::kElementDivide: {
+                        kernel::get_element_wise_kernel<
+                            base::ElementWiseType::kElementDivide, float
+                        >(this->device_type())(
+                            input0, input1,
+                            output0, stream
+                        );
+                        break;
+                    }
+                    default: {
+                        return base::Status{
+                            base::ReturnStatus::InvalidArgument,
+                            "Unsupported data type!"
+                        };
+                    }
+                }
                 break;
             }
             case base::DataType::kDataFloat16: {
@@ -121,5 +161,9 @@ namespace qwi::ops {
         }
 
         return base::Status{base::ReturnStatus::Success};
+    }
+
+    base::ElementWiseType Elementwise::get_op_type() const {
+        return this->op_type_;
     }
 }
