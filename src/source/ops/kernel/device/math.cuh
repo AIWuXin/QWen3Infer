@@ -81,6 +81,79 @@ namespace qwi::ops::kernel {
             }
         }
     }
+
+    template<base::ReductionType Op, typename T>
+    __device__ __forceinline__ T get_reduction_init_value_cu() {
+        if constexpr (Op == base::ReductionType::kReduceSum) {
+            return static_cast<T>(0);
+        } else if constexpr (
+            Op == base::ReductionType::kReduceMean
+        ) {
+            return static_cast<T>(0);
+        } else if constexpr (Op == base::ReductionType::kReduceMax) {
+            return std::numeric_limits<T>::lowest();
+        } else if constexpr (Op == base::ReductionType::kReduceMin) {
+            return std::numeric_limits<T>::max();
+        } else if constexpr (Op == base::ReductionType::kReduceAll) {
+            return static_cast<T>(1);
+        } else if constexpr (Op == base::ReductionType::kReduceAny) {
+            return static_cast<T>(0);
+        } else {
+            LOG(FATAL) << "unsupported reduction type";
+            throw std::runtime_error("unsupported reduction type");
+        }
+    }
+
+    template<base::ReductionType Op, typename T>
+    __device__ __forceinline__ T reduction_op(T a, T b) {
+        if constexpr (Op == base::ReductionType::kReduceSum) {
+            return a + b;
+        } else if constexpr (Op == base::ReductionType::kReduceMean) {
+            // Mean 的规约阶段先累加，最终除法在 kernel 出口或 Host 端执行 (sum / N)
+            return a + b;
+        } else if constexpr (Op == base::ReductionType::kReduceMax) {
+            return (a > b) ? a : b;
+        } else if constexpr (Op == base::ReductionType::kReduceMin) {
+            return (a < b) ? a : b;
+        } else if constexpr (Op == base::ReductionType::kReduceAll) {
+            // 逻辑与：非零视为 true
+            return static_cast<bool>(a) && static_cast<bool>(b);
+        } else if constexpr (Op == base::ReductionType::kReduceAny) {
+            // 逻辑或：非零视为 true
+            return static_cast<bool>(a) || static_cast<bool>(b);
+        } else {
+            LOG(FATAL) << "unsupported reduction type";
+            return static_cast<T>(0);
+        }
+    }
+
+    template<base::ReductionType OP, const size_t ThreadNum>
+    __device__ __forceinline__ void reduction_kernel_cu(
+        const size_t size,
+        const float* __restrict in0,
+        float* __restrict out0
+    ) {
+        const size_t tid = threadIdx.x;
+        const size_t global_idx = threadIdx.x + blockDim.x * blockIdx.x;
+        const size_t total_size_per_block = blockDim.x * gridDim.x;
+        float local_sum = get_reduction_init_value_cu<OP, float>();
+        __shared__ float block_local_sum[ThreadNum];
+
+        for (int idx = 0; idx < size; idx += total_size_per_block) {
+            local_sum = reduction_op<OP, float>(local_sum, in0[idx]);
+        }
+        block_local_sum[tid] = local_sum;
+        __syncthreads();
+
+        for (int reduce_idx = blockDim.x >> 2; reduce_idx > 0; reduce_idx >>= 1) {
+            if (tid < reduce_idx) {
+                block_local_sum[tid] = reduction_op<OP, float>(
+                    block_local_sum[tid], block_local_sum[tid + reduce_idx]
+                );
+            }
+            __syncthreads();
+        }
+    }
 }
 
 

@@ -91,8 +91,8 @@ namespace qwi::base {
         kReduceMin,
 
         // 逻辑归约
-        kReductionAll,
-        kReductionAny,
+        kReduceAll,
+        kReduceAny,
     };
 
     class NoCopyable {

@@ -53,13 +53,8 @@ namespace qwi::ops::kernel {
         const base::DeviceType device_type,
         int32_t dim
     ) {
-        if (dim < -1) {
-            LOG(FATAL) << "UnSupported dimensiton: dim < -1";
-            throw std::invalid_argument("dim < -1");
-        }
-
         if (device_type == base::DeviceType::kDeviceCPU) {
-            if (dim == -1) {
+            if (dim == INT_MIN) {
                 return reduction_kernel_host<Op, T>;
             }
 
@@ -67,7 +62,7 @@ namespace qwi::ops::kernel {
         }
 
         if (device_type == base::DeviceType::kDeviceCUDA) {
-            if (dim == -1) {
+            if (dim == INT_MIN) {
                 return reduction_kernel_device<Op, T>;
             }
 

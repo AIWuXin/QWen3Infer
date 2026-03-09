@@ -125,7 +125,7 @@ namespace qwi::tensor {
     template <typename T, typename Tp>
     static size_t reduce_dimension(T begin, T end, Tp init) {
         if (begin >= end) {
-            return size_t{0};
+            return size_t{init};
         }
 
         auto size = std::accumulate(

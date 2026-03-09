@@ -62,7 +62,109 @@ namespace qwi::ops::kernel {
             stream = cuda_config_->stream;
         }
 
-
+        switch (this->data_type()) {
+            case base::DataType::kDataFloat32: {
+                switch (this->op_type_) {
+                    case base::ReductionType::kReduceSum: {
+                        kernel::get_reduction_wise_kernel<
+                            base::ReductionType::kReduceSum, float
+                        >(this->device_type(), this->dim_)(
+                            input0, output0,
+                            this->dim_, stream
+                        );
+                        break;
+                    }
+                    case base::ReductionType::kReduceMean: {
+                        kernel::get_reduction_wise_kernel<
+                            base::ReductionType::kReduceMean, float
+                        >(this->device_type(), this->dim_)(
+                            input0, output0,
+                            this->dim_, stream
+                        );
+                        break;
+                    }
+                    case base::ReductionType::kReduceMax: {
+                        kernel::get_reduction_wise_kernel<
+                            base::ReductionType::kReduceMax, float
+                        >(this->device_type(), this->dim_)(
+                            input0, output0,
+                            this->dim_, stream
+                        );
+                        break;
+                    }
+                    case base::ReductionType::kReduceMin: {
+                        kernel::get_reduction_wise_kernel<
+                            base::ReductionType::kReduceMin, float
+                        >(this->device_type(), this->dim_)(
+                            input0, output0,
+                            this->dim_, stream
+                        );
+                        break;
+                    }
+                    case base::ReductionType::kReduceAll: {
+                        kernel::get_reduction_wise_kernel<
+                            base::ReductionType::kReduceAll, float
+                        >(this->device_type(), this->dim_)(
+                            input0, output0,
+                            this->dim_, stream
+                        );
+                        break;
+                    }
+                    case base::ReductionType::kReduceAny: {
+                        kernel::get_reduction_wise_kernel<
+                            base::ReductionType::kReduceAny, float
+                        >(this->device_type(), this->dim_)(
+                            input0, output0,
+                            this->dim_, stream
+                        );
+                        break;
+                    }
+                    default: {
+                        return base::Status{
+                            base::ReturnStatus::InvalidArgument,
+                            "Unsupported reduction type!"
+                        };
+                    }
+                }
+                break;
+            }
+            case base::DataType::kDataFloat16: {
+                return base::Status{
+                    base::ReturnStatus::NotImplement,
+                    "DataType fp16 not supported yet!"
+                };
+            }
+            case base::DataType::kDataFloat8: {
+                return base::Status{
+                    base::ReturnStatus::NotImplement,
+                    "DataType fp8 not supported yet!"
+                };
+            }
+            case base::DataType::kDataInt32: {
+                return base::Status{
+                    base::ReturnStatus::NotImplement,
+                    "DataType int32 not supported yet!"
+                };
+            }
+            case base::DataType::kDataInt16: {
+                return base::Status{
+                    base::ReturnStatus::NotImplement,
+                    "DataType int16 not supported yet!"
+                };
+            }
+            case base::DataType::kDataInt8: {
+                return base::Status{
+                    base::ReturnStatus::NotImplement,
+                    "DataType int8 not supported yet!"
+                };
+            }
+            default: {
+                return base::Status{
+                    base::ReturnStatus::InvalidArgument,
+                    "Unsupported data type!"
+                };
+            }
+        }
 
         return base::Status{base::ReturnStatus::Success};
     }

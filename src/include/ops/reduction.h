@@ -21,8 +21,8 @@ namespace qwi::ops::kernel {
         );
         [[nodiscard]] base::Status check() const override;
         base::Status forward() override;
-        base::ReductionType get_op_type() const;
-        int32_t get_dim() const;
+        [[nodiscard]] base::ReductionType get_op_type() const;
+        [[nodiscard]] int32_t get_dim() const;
     private:
         base::ReductionType op_type_;
         int32_t dim_;

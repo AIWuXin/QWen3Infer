@@ -19,7 +19,7 @@ namespace qwi::ops {
         );
         [[nodiscard]] base::Status check() const override;
         base::Status forward() override;
-        base::ElementWiseType get_op_type() const;
+        [[nodiscard]] base::ElementWiseType get_op_type() const;
     private:
         base::ElementWiseType op_type_;
     };
