@@ -196,7 +196,7 @@ namespace qwi::ops {
         );
     };
 
-    class WeightedLayer : public CommonLayer {
+class WeightedLayer : public CommonLayer {
     public:
         explicit WeightedLayer(
             base::DeviceType device_type,
@@ -209,10 +209,91 @@ namespace qwi::ops {
             data_type,
             std::move(layer_name)
         ) {}
+
+        // 权重管理
+        [[nodiscard]] const std::vector<tensor::Tensor>& weights() const {
+            return weights_;
+        }
+
+        [[nodiscard]] std::vector<tensor::Tensor>& weights() {
+            return weights_;
+        }
+
+        void set_weights(const std::vector<tensor::Tensor>& weights) {
+            weights_ = weights;
+        }
+
+        void add_weight(const tensor::Tensor& weight) {
+            weights_.push_back(weight);
+        }
+
+        [[nodiscard]] const tensor::Tensor& weight(size_t idx) const {
+            CHECK_LT(idx, weights_.size());
+            return weights_[idx];
+        }
+
+        tensor::Tensor& weight(size_t idx) {
+            CHECK_LT(idx, weights_.size());
+            return weights_[idx];
+        }
+
+        [[nodiscard]] size_t weight_count() const {
+            return weights_.size();
+        }
+
+        // Scales 管理（用于量化）
+        [[nodiscard]] const tensor::Tensor& scales() const {
+            return scales_;
+        }
+
+        tensor::Tensor& scales() {
+            return scales_;
+        }
+
+        void set_scales(const tensor::Tensor& scales) {
+            scales_ = scales;
+        }
+
+        [[nodiscard]] bool has_scales() const {
+            return !scales_.is_empty();
+        }
+
+        // Group size 管理（用于分组量化）
+        [[nodiscard]] size_t group_size() const {
+            return group_size_;
+        }
+
+        void set_group_size(size_t group_size) {
+            group_size_ = group_size;
+        }
+
+        [[nodiscard]] bool is_quantized() const {
+            return group_size_ > 0;
+        }
+
+        // 初始化检查
+        [[nodiscard]] base::Status check_weights() const {
+            for (size_t i = 0; i < weights_.size(); ++i) {
+                if (weights_[i].is_empty()) {
+                    return base::Status{
+                        base::ReturnStatus::InvalidArgument,
+                        "Weight " + std::to_string(i) + " is empty"
+                    };
+                }
+                if (weights_[i].get_data_type() != data_type_) {
+                    return base::Status{
+                        base::ReturnStatus::InvalidArgument,
+                        "Weight " + std::to_string(i) + " data type mismatch"
+                    };
+                }
+            }
+            return base::Status{base::ReturnStatus::Success};
+        }
+
     protected:
-        size_t group_size_ = 0;
-        tensor::Tensor scales_;
-        std::vector<tensor::Tensor> weights_;
+        size_t group_size_ = 0;                    // 量化分组大小，0表示不量化
+        tensor::Tensor scales_;                    // 量化缩放因子
+        std::vector<tensor::Tensor> weights_;      // 权重张量列表
     };
 }
 
