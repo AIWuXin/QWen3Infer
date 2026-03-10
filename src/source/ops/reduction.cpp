@@ -41,7 +41,7 @@ namespace qwi::ops::kernel {
 
         status = check_tensor_with_dim(
             output0, this->data_type(),
-            this->device_type(), input0.dims()
+            this->device_type(), output0.dims()
         );
         if (!status) {
             LOG(ERROR) << "The output tensor 0 error in the reduction layer.";
@@ -54,6 +54,10 @@ namespace qwi::ops::kernel {
     }
 
     base::Status Reduction::forward() {
+        auto status = this->check();
+        if (!status) {
+            return status;
+        }
         const auto input0 = this->get_input(0);
         auto output0 = this->get_output(0);
         void* stream = nullptr;

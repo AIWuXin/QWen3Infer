@@ -28,10 +28,12 @@ protected:
         for (int i = 0; i < warmup_iters; ++i) {
             func();
         }
+        cudaDeviceSynchronize();
         auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < test_iters; ++i) {
             func();
         }
+        cudaDeviceSynchronize();
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> ms = (end - start) / test_iters;
         return ms.count();
@@ -413,7 +415,7 @@ TEST_F(ReductionTest, GlobalSumLarge) {
         -1
     );
 
-    const size_t size = 100000;
+    const size_t size = 10000000;
     tensor::Tensor input(base::DataType::kDataFloat32, size, base::DeviceType::kDeviceCPU, cpu_allocator_);
     tensor::Tensor output(base::DataType::kDataFloat32, 1, base::DeviceType::kDeviceCPU, cpu_allocator_);
 
@@ -429,7 +431,7 @@ TEST_F(ReductionTest, GlobalSumLarge) {
         reduction.forward();
     }, 10, 50);
 
-    std::cout << "[Perf] GlobalSum 100K elements: " << avg_ms << " ms/op" << std::endl;
+    std::cout << "[Perf] GlobalSum 10M elements: " << avg_ms << " ms/op" << std::endl;
 
     EXPECT_FLOAT_EQ(output.ptr<float>()[0], static_cast<float>(size));
 }
@@ -576,4 +578,581 @@ TEST_F(ReductionTest, NegativeNumbers) {
     EXPECT_TRUE(status);
 
     EXPECT_FLOAT_EQ(output.ptr<float>()[0], 0.0f);
+}
+
+
+class CudaReductionTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        cpu_allocator_ = base::CpuDeviceAllocatorFactory::get_instance();
+        cuda_allocator_ = base::CudaDeviceAllocatorFactory::get_instance();
+    }
+
+    std::shared_ptr<base::DeviceAllocator> cpu_allocator_;
+    std::shared_ptr<base::DeviceAllocator> cuda_allocator_;
+
+    // 辅助函数：创建 CUDA tensor 并从 CPU 数据复制
+    tensor::Tensor create_cuda_input(const std::vector<float>& data,
+                                      const std::vector<size_t>& dims) {
+        tensor::Tensor cpu_tensor(base::DataType::kDataFloat32, dims,
+                                   base::DeviceType::kDeviceCPU, cpu_allocator_);
+        std::memcpy(cpu_tensor.ptr<float>(), data.data(), data.size() * sizeof(float));
+
+        tensor::Tensor cuda_tensor(base::DataType::kDataFloat32, dims,
+                                    base::DeviceType::kDeviceCUDA, cuda_allocator_);
+        cuda_tensor.allocate(cuda_allocator_, cpu_tensor.byte_size(),
+                              base::DeviceType::kDeviceCUDA);
+
+        // CPU -> CUDA
+        cuda_allocator_->memcpy(cpu_tensor.ptr<float>(), cuda_tensor.ptr<float>(),
+                                cpu_tensor.byte_size(),
+                                base::MemcpyKind::kMemcpyHost2Device,
+                                nullptr, true);
+        return cuda_tensor;
+    }
+
+    // 辅助函数：将 CUDA 输出复制回 CPU 并检查
+    float get_cuda_output(const tensor::Tensor& cuda_output) {
+        tensor::Tensor cpu_output(base::DataType::kDataFloat32, cuda_output.dims(),
+                                   base::DeviceType::kDeviceCPU, cpu_allocator_);
+        cpu_output.allocate(cpu_allocator_, cuda_output.byte_size(),
+                             base::DeviceType::kDeviceCPU);
+
+        // CUDA -> CPU
+        cuda_allocator_->memcpy(cuda_output.ptr<float>(), cpu_output.ptr<float>(),
+                                cuda_output.byte_size(),
+                                base::MemcpyKind::kMemcpyDevice2Host,
+                                nullptr, true);
+        return cpu_output.ptr<float>()[0];
+    }
+};
+
+TEST_F(CudaReductionTest, GlobalSum1D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_sum_1d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        INT_MIN
+    );
+
+    std::vector<float> data(100);
+    for (size_t i = 0; i < 100; ++i) data[i] = static_cast<float>(i);
+
+    auto input = create_cuda_input(data, {100});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    // Sum of 0..99 = 4950
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 4950.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalMean2D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_mean_2d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceMean,
+        INT_MIN
+    );
+
+    const std::vector data(1000, 5.0f);  // 100 个 5.0
+
+    auto input = create_cuda_input(data, {10, 100});
+    const tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    const auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 5.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalMax3D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_max_3d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceMax,
+        INT_MIN
+    );
+
+    std::vector<float> data(60);
+    for (size_t i = 0; i < 60; ++i) data[i] = static_cast<float>(i);
+
+    auto input = create_cuda_input(data, {3, 4, 5});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 59.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalMin) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_min",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceMin,
+        INT_MIN
+    );
+
+    std::vector<float> data(50);
+    for (size_t i = 0; i < 50; ++i) data[i] = static_cast<float>(100 - i);  // 100, 99, ...
+
+    auto input = create_cuda_input(data, {50});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 51.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalAllTrue) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_all_true",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceAll,
+        INT_MIN
+    );
+
+    std::vector<float> data(10, 1.0f);  // All non-zero
+
+    auto input = create_cuda_input(data, {10});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 1.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalAllFalse) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_all_false",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceAll,
+        INT_MIN
+    );
+
+    std::vector<float> data(10, 1.0f);
+    data[9] = 0.0f;  // Last element is 0
+
+    auto input = create_cuda_input(data, {10});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 0.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalAnyTrue) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_any_true",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceAny,
+        INT_MIN
+    );
+
+    std::vector<float> data(10, 0.0f);
+    data[5] = 1.0f;  // Only one true
+
+    auto input = create_cuda_input(data, {10});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 1.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalAnyFalse) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_any_false",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceAny,
+        INT_MIN
+    );
+
+    std::vector<float> data(10, 0.0f);  // All false
+
+    auto input = create_cuda_input(data, {10});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 0.0f);
+}
+
+TEST_F(CudaReductionTest, GlobalSumLarge) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_global_sum_large",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        INT_MIN
+    );
+
+    const size_t size = 10000000;  // 1M elements
+    std::vector<float> data(size, 1.0f);
+
+    auto input = create_cuda_input(data, {size});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    // Warmup
+    for (int i = 0; i < 10; ++i) {
+        reduction.forward();
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 100; ++i) {
+        reduction.forward();
+    }
+    cudaDeviceSynchronize();
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double, std::milli> avg_ms = (end - start) / 20;
+    std::cout << "[Perf] CUDA GlobalSum 10M elements: " << avg_ms.count() << " ms/op" << std::endl;
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), static_cast<float>(size));
+}
+
+TEST_F(CudaReductionTest, ZeroInput) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_zero_input",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        INT_MIN
+    );
+
+    std::vector<float> data(100, 0.0f);
+
+    auto input = create_cuda_input(data, {100});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 0.0f);
+}
+
+TEST_F(CudaReductionTest, NegativeNumbers) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_negative",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        INT_MIN
+    );
+
+    std::vector<float> data = {-5, -3, -1, 2, 7};  // Sum = 0
+
+    auto input = create_cuda_input(data, {5});
+    tensor::Tensor output(base::DataType::kDataFloat32, 1,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    EXPECT_FLOAT_EQ(get_cuda_output(output), 0.0f);
+}
+
+
+TEST_F(CudaReductionTest, ReduceSumDim0_2D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_sum_dim0_2d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        0
+    );
+
+    // 3x4 matrix: [[1,2,3,4], [5,6,7,8], [9,10,11,12]]
+    float data[] = {1,2,3,4, 5,6,7,8, 9,10,11,12};
+    std::vector<float> vec_data(data, data + 12);
+
+    auto input = create_cuda_input(vec_data, {3, 4});
+    tensor::Tensor output(base::DataType::kDataFloat32, 4,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    // 拷贝回 CPU 检查
+    tensor::Tensor cpu_output(base::DataType::kDataFloat32, {4},
+                               base::DeviceType::kDeviceCPU, cpu_allocator_);
+    cpu_output.allocate(cpu_allocator_, cpu_output.byte_size(),
+                         base::DeviceType::kDeviceCPU);
+    cuda_allocator_->memcpy(output.ptr<float>(), cpu_output.ptr<float>(),
+                            output.byte_size(),
+                            base::MemcpyKind::kMemcpyDevice2Host,
+                            nullptr, true);
+
+    float* out = cpu_output.ptr<float>();
+    EXPECT_FLOAT_EQ(out[0], 15.0f);   // 1+5+9
+    EXPECT_FLOAT_EQ(out[1], 18.0f);   // 2+6+10
+    EXPECT_FLOAT_EQ(out[2], 21.0f);   // 3+7+11
+    EXPECT_FLOAT_EQ(out[3], 24.0f);   // 4+8+12
+}
+
+TEST_F(CudaReductionTest, ReduceSumDim1_2D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_sum_dim1_2d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        1
+    );
+
+    // 3x4 matrix: [[1,2,3,4], [5,6,7,8], [9,10,11,12]]
+    float data[] = {1,2,3,4, 5,6,7,8, 9,10,11,12};
+    std::vector<float> vec_data(data, data + 12);
+
+    auto input = create_cuda_input(vec_data, {3, 4});
+    tensor::Tensor output(base::DataType::kDataFloat32, 3,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    tensor::Tensor cpu_output(base::DataType::kDataFloat32, {3},
+                               base::DeviceType::kDeviceCPU, cpu_allocator_);
+    cpu_output.allocate(cpu_allocator_, cpu_output.byte_size(),
+                         base::DeviceType::kDeviceCPU);
+    cuda_allocator_->memcpy(output.ptr<float>(), cpu_output.ptr<float>(),
+                            output.byte_size(),
+                            base::MemcpyKind::kMemcpyDevice2Host,
+                            nullptr, true);
+
+    float* out = cpu_output.ptr<float>();
+    EXPECT_FLOAT_EQ(out[0], 10.0f);   // 1+2+3+4
+    EXPECT_FLOAT_EQ(out[1], 26.0f);   // 5+6+7+8
+    EXPECT_FLOAT_EQ(out[2], 42.0f);   // 9+10+11+12
+}
+
+TEST_F(CudaReductionTest, ReduceMeanDim0_3D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_mean_dim0_3d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceMean,
+        0
+    );
+
+    // 2x3x4 tensor
+    std::vector<float> data(24);
+    for (size_t i = 0; i < 24; ++i) {
+        data[i] = static_cast<float>(i);
+    }
+
+    auto input = create_cuda_input(data, {2, 3, 4});
+    tensor::Tensor output(base::DataType::kDataFloat32, {3, 4},
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    tensor::Tensor cpu_output(base::DataType::kDataFloat32, {3, 4},
+                               base::DeviceType::kDeviceCPU, cpu_allocator_);
+    cpu_output.allocate(cpu_allocator_, cpu_output.byte_size(),
+                         base::DeviceType::kDeviceCPU);
+    cuda_allocator_->memcpy(output.ptr<float>(), cpu_output.ptr<float>(),
+                            output.byte_size(),
+                            base::MemcpyKind::kMemcpyDevice2Host,
+                            nullptr, true);
+
+    // Mean of [i, i+12] = (i + i+12) / 2 = i + 6
+    float* out = cpu_output.ptr<float>();
+    EXPECT_FLOAT_EQ(out[0], 6.0f);    // (0 + 12) / 2
+    EXPECT_FLOAT_EQ(out[1], 7.0f);    // (1 + 13) / 2
+    EXPECT_FLOAT_EQ(out[11], 17.0f);  // (11 + 23) / 2
+}
+
+TEST_F(CudaReductionTest, ReduceMaxDim1_3D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_max_dim1_3d",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceMax,
+        1
+    );
+
+    // 2x3x4 tensor
+    std::vector<float> data(24);
+    for (size_t i = 0; i < 24; ++i) {
+        data[i] = static_cast<float>(i);
+    }
+
+    auto input = create_cuda_input(data, {2, 3, 4});
+    tensor::Tensor output(base::DataType::kDataFloat32, {2, 4},
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    tensor::Tensor cpu_output(base::DataType::kDataFloat32, {2, 4},
+                               base::DeviceType::kDeviceCPU, cpu_allocator_);
+    cpu_output.allocate(cpu_allocator_, cpu_output.byte_size(),
+                         base::DeviceType::kDeviceCPU);
+    cuda_allocator_->memcpy(output.ptr<float>(), cpu_output.ptr<float>(),
+                            output.byte_size(),
+                            base::MemcpyKind::kMemcpyDevice2Host,
+                            nullptr, true);
+
+    // Max along dim 1 (size 3): each output[i,k] = max over j of input[i,j,k]
+    float* out = cpu_output.ptr<float>();
+    EXPECT_FLOAT_EQ(out[0], 8.0f);   // max(0, 4, 8)
+    EXPECT_FLOAT_EQ(out[1], 9.0f);   // max(1, 5, 9)
+    EXPECT_FLOAT_EQ(out[4], 20.0f);  // max(12, 16, 20)
+}
+
+TEST_F(CudaReductionTest, ReduceMinDimNegative) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_min_dim_negative",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceMin,
+        -1  // Should be treated as last dim (dim 1 for 2D)
+    );
+
+    float data[] = {3,1,4,2, 6,5,7,8, 9,10,2,11};
+    std::vector<float> vec_data(data, data + 12);
+
+    auto input = create_cuda_input(vec_data, {3, 4});
+    tensor::Tensor output(base::DataType::kDataFloat32, 3,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    auto status = reduction.forward();
+    EXPECT_TRUE(status);
+
+    tensor::Tensor cpu_output(base::DataType::kDataFloat32, {3},
+                               base::DeviceType::kDeviceCPU, cpu_allocator_);
+    cpu_output.allocate(cpu_allocator_, cpu_output.byte_size(),
+                         base::DeviceType::kDeviceCPU);
+    cuda_allocator_->memcpy(output.ptr<float>(), cpu_output.ptr<float>(),
+                            output.byte_size(),
+                            base::MemcpyKind::kMemcpyDevice2Host,
+                            nullptr, true);
+
+    float* out = cpu_output.ptr<float>();
+    EXPECT_FLOAT_EQ(out[0], 1.0f);   // min of first row
+    EXPECT_FLOAT_EQ(out[1], 5.0f);   // min of second row
+    EXPECT_FLOAT_EQ(out[2], 2.0f);   // min of third row
+}
+
+TEST_F(CudaReductionTest, ReduceSumDimLarge2D) {
+    ops::kernel::Reduction reduction(
+        base::DataType::kDataFloat32,
+        "test_cuda_sum_dim_large",
+        base::DeviceType::kDeviceCUDA,
+        base::ReductionType::kReduceSum,
+        0
+    );
+
+    const size_t rows = 1000, cols = 1000;
+    std::vector<float> data(rows * cols, 1.0f);
+
+    auto input = create_cuda_input(data, {rows, cols});
+    tensor::Tensor output(base::DataType::kDataFloat32, cols,
+                          base::DeviceType::kDeviceCUDA, cuda_allocator_);
+
+    reduction.set_input(0, input);
+    reduction.set_output(0, output);
+
+    // Warmup
+    for (int i = 0; i < 5; ++i) {
+        reduction.forward();
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 20; ++i) {
+        reduction.forward();
+    }
+    cudaDeviceSynchronize();
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double, std::milli> avg_ms = (end - start) / 20;
+    std::cout << "[Perf] CUDA ReduceSum dim0 1000x1000: " << avg_ms.count() << " ms/op" << std::endl;
+
+    tensor::Tensor cpu_output(base::DataType::kDataFloat32, {cols},
+                               base::DeviceType::kDeviceCPU, cpu_allocator_);
+    cpu_output.allocate(cpu_allocator_, cpu_output.byte_size(),
+                         base::DeviceType::kDeviceCPU);
+    cuda_allocator_->memcpy(output.ptr<float>(), cpu_output.ptr<float>(),
+                            output.byte_size(),
+                            base::MemcpyKind::kMemcpyDevice2Host,
+                            nullptr, true);
+
+    float* out = cpu_output.ptr<float>();
+    for (size_t j = 0; j < cols; ++j) {
+        EXPECT_FLOAT_EQ(out[j], static_cast<float>(rows));
+    }
 }

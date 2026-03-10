@@ -100,7 +100,7 @@ namespace qwi::ops::kernel {
             return static_cast<T>(0);
         } else {
             LOG(FATAL) << "unsupported reduction type";
-            throw std::runtime_error("unsupported reduction type");
+            return static_cast<T>(0);
         }
     }
 
@@ -127,31 +127,136 @@ namespace qwi::ops::kernel {
         }
     }
 
-    template<base::ReductionType OP, const size_t ThreadNum>
+    template<base::ReductionType Op, typename T>
+    __device__ __forceinline__ T warp_reduce_op(T val) {
+    #pragma unroll
+        for (int offset = 32 >> 1; offset > 0; offset >>= 1) {
+            T other = __shfl_down_sync(0xFFFFFFFF, val, offset);
+            val = reduction_op<Op, T>(other, val);
+        }
+
+        return val;  // 只有一个warp中0号线程是正确答案
+    }
+
+    template<base::ReductionType OP>
     __device__ __forceinline__ void reduction_kernel_cu(
         const size_t size,
         const float* __restrict in0,
-        float* __restrict out0
+        float* __restrict out0,
+        const float div_number
     ) {
         const size_t tid = threadIdx.x;
         const size_t global_idx = threadIdx.x + blockDim.x * blockIdx.x;
         const size_t total_size_per_block = blockDim.x * gridDim.x;
         float local_sum = get_reduction_init_value_cu<OP, float>();
-        __shared__ float block_local_sum[ThreadNum];
+        constexpr  size_t warp_size = 32;
+        const size_t idx_in_warp = threadIdx.x % warp_size;
+        const size_t warp_idx = threadIdx.x / warp_size;
+        __shared__ float warp_sum[warp_size];
 
-        for (int idx = 0; idx < size; idx += total_size_per_block) {
-            local_sum = reduction_op<OP, float>(local_sum, in0[idx]);
+        const size_t vec_size = size / 4;
+        const auto vec_in0 = reinterpret_cast<const float4*>(in0);
+        for (size_t idx = global_idx; idx < vec_size; idx += total_size_per_block) {
+            float4 vec_data = vec_in0[idx];
+            local_sum = reduction_op<OP, float>(local_sum, vec_data.x);
+            local_sum = reduction_op<OP, float>(local_sum, vec_data.y);
+            local_sum = reduction_op<OP, float>(local_sum, vec_data.z);
+            local_sum = reduction_op<OP, float>(local_sum, vec_data.w);
         }
-        block_local_sum[tid] = local_sum;
+        const int remainder_start = vec_size * 4;
+        for (int idx = remainder_start + global_idx; idx < size; idx += total_size_per_block) {
+            local_sum = reduction_op<OP, float>(local_sum, in0[idx]);
+        }  // step1: 全局求和
+
+        local_sum = warp_reduce_op<OP, float>(local_sum);
+        if (idx_in_warp == 0) {
+            warp_sum[warp_idx] = local_sum;
+        }
+        __syncthreads();  // step2: warp间规约
+
+        if (warp_idx == 0) {
+            local_sum = idx_in_warp < blockDim.x / warp_size ?
+                warp_sum[idx_in_warp] : get_reduction_init_value_cu<OP, float>();
+            local_sum = warp_reduce_op<OP, float>(local_sum);
+
+            if (tid == 0) {
+                if constexpr (OP == base::ReductionType::kReduceMean) {
+                    local_sum = local_sum / div_number;
+                }
+                out0[blockIdx.x] = local_sum;  // 每个 block 写一个值
+            }
+        }
+    }
+
+
+    template<base::ReductionType Op>
+    __device__ __forceinline__ void reduction_dim_kernel_cu(
+        const float* __restrict in0,
+        float* __restrict out0,
+        const size_t outer_size,
+        const size_t reduce_dim_size,
+        const size_t inner_size,
+        const size_t stride_outer,  // input_strides[0]
+        const size_t stride_reduce, // input_strides[dim]
+        const float div_number      // for Mean
+    ) {
+        const size_t out_idx = blockIdx.x;
+        const size_t i = out_idx / inner_size;
+        const size_t j = out_idx % inner_size;
+        const size_t tid = threadIdx.x;
+
+        float local_val = get_reduction_init_value_cu<Op, float>();
+
+        // 计算当前 (i, j) 在 reduce_dim=0 位置的起始地址
+        const float* row_ptr = in0 + i * stride_outer + j;
+
+        // 只有当 stride_reduce == 1 时（连续内存），才能用 float4 向量化
+        if (stride_reduce == 1) {
+            // ===== 向量化路径 =====
+            const size_t vec_size = reduce_dim_size / 4;
+            const auto vec_row_ptr = reinterpret_cast<const float4*>(row_ptr);
+
+            // 处理 4 个一组的数据
+            for (size_t k = tid; k < vec_size; k += blockDim.x) {
+                float4 vec_data = vec_row_ptr[k];
+                local_val = reduction_op<Op, float>(local_val, vec_data.x);
+                local_val = reduction_op<Op, float>(local_val, vec_data.y);
+                local_val = reduction_op<Op, float>(local_val, vec_data.z);
+                local_val = reduction_op<Op, float>(local_val, vec_data.w);
+            }
+
+            // 处理剩余部分（非4对齐的尾部）
+            const size_t remainder_start = vec_size * 4;
+            for (size_t k = remainder_start + tid; k < reduce_dim_size; k += blockDim.x) {
+                local_val = reduction_op<Op, float>(local_val, row_ptr[k]);
+            }
+        } else {
+            // ===== 非连续内存路径（无法向量化） =====
+            for (size_t k = tid; k < reduce_dim_size; k += blockDim.x) {
+                const size_t in_idx = i * stride_outer + k * stride_reduce + j;
+                local_val = reduction_op<Op, float>(local_val, in0[in_idx]);
+            }
+        }
+
+        local_val = warp_reduce_op<Op, float>(local_val);
+
+        __shared__ float warp_sums[32];
+        if (tid % 32 == 0) {
+            warp_sums[tid / 32] = local_val;
+        }
         __syncthreads();
 
-        for (int reduce_idx = blockDim.x >> 2; reduce_idx > 0; reduce_idx >>= 1) {
-            if (tid < reduce_idx) {
-                block_local_sum[tid] = reduction_op<OP, float>(
-                    block_local_sum[tid], block_local_sum[tid + reduce_idx]
-                );
+        if (tid < 32) {
+            local_val = (tid < blockDim.x / 32) ? warp_sums[tid]
+                                                : get_reduction_init_value_cu<Op, float>();
+            local_val = warp_reduce_op<Op, float>(local_val);
+
+            if (tid == 0) {
+                if constexpr (Op == base::ReductionType::kReduceMean) {
+                    local_val /= div_number;
+                }
+                out0[out_idx] = local_val;
             }
-            __syncthreads();
         }
     }
 }

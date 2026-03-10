@@ -25,10 +25,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
-    message(STATUS "CUDA debug flags enabled: -G -g")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g --expt-relaxed-constexpr")
+    message(STATUS "CUDA debug flags enabled: -G -g --expt-relaxed-constexpr")
 else ()
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-relaxed-constexpr")
 endif()
 
 include_directories(/usr/local/cuda-12.8/targets/x86_64-linux/include)

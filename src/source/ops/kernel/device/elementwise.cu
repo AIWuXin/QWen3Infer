@@ -39,7 +39,7 @@ namespace qwi::ops::kernel {
         if (stream) {
             auto cuda_stream = static_cast<cudaStream_t>(stream);
             if constexpr (std::is_same_v<T, float>) {
-                elementwise_kernel_cu_launch<Op><<<block_num, thread_num, cuda_stream>>>(
+                elementwise_kernel_cu_launch<Op><<<block_num, thread_num, 0, cuda_stream>>>(
                     size, input0.ptr<float>(),
                     input1.ptr<float>(),
                     output0.ptr<float>()
