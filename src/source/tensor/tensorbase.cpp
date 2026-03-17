@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "../../include/tensor/tensorbase.h"
+#include "../../include/ops/ops.h"
 
 
 namespace qwi::tensor {
@@ -116,6 +117,21 @@ namespace qwi::tensor {
         }
 
         return base::ReturnStatus::Success;
+    }
+
+    base::Status Tensor::fill(
+        const double value,
+        const int32_t dim,
+        const size_t count
+    ) const {
+        auto fill_function = ops::Fill(
+            this->get_data_type(),
+            value, dim, count,
+            this->get_device_type(),
+            "tensor self fill"
+        );
+        fill_function.set_input(0, *this);
+        return fill_function.forward();
     }
 
     size_t Tensor::byte_size() const {

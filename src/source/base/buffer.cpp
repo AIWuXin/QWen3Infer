@@ -328,4 +328,53 @@ namespace qwi::base {
         }
         return this->copy_from(*other);
     }
+
+    ReturnStatus Buffer::memset_zero_sync(
+        void* stream
+    ) {
+        return this->memset_zero(stream, true);
+    }
+
+    ReturnStatus Buffer::memset_zero_async(
+        void* stream
+    ) {
+        return this->memset_zero(stream, false);
+    }
+
+    ReturnStatus Buffer::memset_zero(void* stream, bool need_sync) {
+        // 1. 检查内存是否已分配
+        if (!this->get_ptr()) {
+            LOG(WARNING) << "Buffer memory not allocated, cannot memset";
+            return ReturnStatus::NoAllocator;
+        }
+
+        if (this->memory_buffer_.byte_size == 0) {
+            return ReturnStatus::Success;  // 零字节无需操作
+        }
+
+        // 2. 根据设备类型执行清零
+        auto device_type = this->get_device_type();
+
+        if (device_type == DeviceType::kDeviceCPU) {
+            // CPU: 直接使用 std::memset
+            std::memset(this->get_ptr(), 0, this->memory_buffer_.byte_size);
+        }
+        else if (device_type == DeviceType::kDeviceCUDA) {
+            // CUDA: 设置设备上下文并调用 cudaMemset
+            cudaSetDevice(static_cast<int32_t>(this->memory_buffer_.device_id));
+            const auto allocator = CudaDeviceAllocatorFactory::get_instance();
+            allocator->memset_zero(
+                this->get_ptr(),
+                this->memory_buffer_.byte_size,
+                stream,
+                need_sync
+            );
+        }
+        else {
+            LOG(WARNING) << "Unknown device type, cannot memset";
+            return ReturnStatus::Error;
+        }
+
+        return ReturnStatus::Success;
+    }
 }

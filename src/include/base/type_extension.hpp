@@ -59,6 +59,7 @@ namespace qwi::base {
 
     enum class LayerType {
         kLayerUnknown = 0,
+        kLayerFill,
         kLayerLinear,
         kLayerConvolution,
         kLayerElementWise,

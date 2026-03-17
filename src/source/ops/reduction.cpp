@@ -7,7 +7,7 @@
 #include "kernels_interface.hpp"
 
 
-namespace qwi::ops::kernel {
+namespace qwi::ops {
     Reduction::Reduction(
         base::DataType data_type,
         std::string layer_name,
@@ -58,6 +58,7 @@ namespace qwi::ops::kernel {
         if (!status) {
             return status;
         }
+
         const auto input0 = this->get_input(0);
         auto output0 = this->get_output(0);
         void* stream = nullptr;

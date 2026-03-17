@@ -13,6 +13,8 @@
 #include "kernel/device/elementwise.cuh"
 #include "kernel/host/reduction.hpp"
 #include "kernel/device/reduction.cuh"
+#include "kernel/host/fill.hpp"
+#include "kernel/device/fill.cuh"
 
 
 namespace qwi::ops::kernel {
@@ -30,6 +32,15 @@ namespace qwi::ops::kernel {
         tensor::Tensor&,
         int32_t dim,
         void*
+    )>;
+
+    template<typename T = float>
+    using FillKernel = std::function<void(
+        tensor::Tensor&,
+        T value,
+        int32_t dim,
+        size_t count,
+        void* stream
     )>;
 
     template<base::ElementWiseType Op = base::ElementWiseType::kElementAdd, typename T = float>
@@ -51,7 +62,7 @@ namespace qwi::ops::kernel {
     template<base::ReductionType Op = base::ReductionType::kReduceSum, typename T = float>
     ReductionKernel<Op, T> get_reduction_wise_kernel(
         const base::DeviceType device_type,
-        int32_t dim
+        const int32_t dim
     ) {
         if (device_type == base::DeviceType::kDeviceCPU) {
             if (dim == INT_MIN) {
@@ -69,6 +80,20 @@ namespace qwi::ops::kernel {
             return reduction_dim_kernel_device<Op, T>;
         }
 
+        LOG(FATAL) << "Unknown device type for get a add kernel.";
+        return nullptr;
+    }
+
+    template<typename T = float>
+    FillKernel<T> get_fill_kernel(
+        const base::DeviceType device_type
+    ) {
+        if (device_type == base::DeviceType::kDeviceCPU) {
+            return fill_kernel_host<T>;
+        }
+        if (device_type == base::DeviceType::kDeviceCUDA) {
+            return fill_kernel_device<T>;
+        }
         LOG(FATAL) << "Unknown device type for get a add kernel.";
         return nullptr;
     }

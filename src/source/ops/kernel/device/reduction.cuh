@@ -6,8 +6,6 @@
 #define QWEN3INFER_REDUCTION_CUH
 
 
-#include <device_launch_parameters.h>
-
 #include "../../../../include/tensor/tensorbase.h"
 
 

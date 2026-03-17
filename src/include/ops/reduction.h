@@ -9,7 +9,7 @@
 #include "layer.h"
 
 
-namespace qwi::ops::kernel {
+namespace qwi::ops {
     class Reduction : public CommonLayer {
     public:
         explicit Reduction(

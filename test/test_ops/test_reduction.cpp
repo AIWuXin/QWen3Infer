@@ -44,7 +44,7 @@ protected:
 // ==================== 全局规约测试 (dim = -1) ====================
 
 TEST_F(ReductionTest, GlobalSum1D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_sum_1d",
         base::DeviceType::kDeviceCPU,
@@ -71,7 +71,7 @@ TEST_F(ReductionTest, GlobalSum1D) {
 }
 
 TEST_F(ReductionTest, GlobalMean2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_mean_2d",
         base::DeviceType::kDeviceCPU,
@@ -97,7 +97,7 @@ TEST_F(ReductionTest, GlobalMean2D) {
 }
 
 TEST_F(ReductionTest, GlobalMax3D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_max_3d",
         base::DeviceType::kDeviceCPU,
@@ -123,7 +123,7 @@ TEST_F(ReductionTest, GlobalMax3D) {
 }
 
 TEST_F(ReductionTest, GlobalMin) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_min",
         base::DeviceType::kDeviceCPU,
@@ -149,7 +149,7 @@ TEST_F(ReductionTest, GlobalMin) {
 }
 
 TEST_F(ReductionTest, GlobalAllTrue) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_all_true",
         base::DeviceType::kDeviceCPU,
@@ -175,7 +175,7 @@ TEST_F(ReductionTest, GlobalAllTrue) {
 }
 
 TEST_F(ReductionTest, GlobalAllFalse) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_all_false",
         base::DeviceType::kDeviceCPU,
@@ -201,7 +201,7 @@ TEST_F(ReductionTest, GlobalAllFalse) {
 }
 
 TEST_F(ReductionTest, GlobalAnyTrue) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_any_true",
         base::DeviceType::kDeviceCPU,
@@ -227,7 +227,7 @@ TEST_F(ReductionTest, GlobalAnyTrue) {
 }
 
 TEST_F(ReductionTest, GlobalAnyFalse) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_global_any_false",
         base::DeviceType::kDeviceCPU,
@@ -256,7 +256,7 @@ TEST_F(ReductionTest, GlobalAnyFalse) {
 // ==================== 按维度规约测试 ====================
 
 TEST_F(ReductionTest, ReduceSumDim0_2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_sum_dim0_2d",
         base::DeviceType::kDeviceCPU,
@@ -286,7 +286,7 @@ TEST_F(ReductionTest, ReduceSumDim0_2D) {
 }
 
 TEST_F(ReductionTest, ReduceSumDim1_2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_sum_dim1_2d",
         base::DeviceType::kDeviceCPU,
@@ -315,7 +315,7 @@ TEST_F(ReductionTest, ReduceSumDim1_2D) {
 }
 
 TEST_F(ReductionTest, ReduceMeanDim0_3D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_mean_dim0_3d",
         base::DeviceType::kDeviceCPU,
@@ -346,7 +346,7 @@ TEST_F(ReductionTest, ReduceMeanDim0_3D) {
 }
 
 TEST_F(ReductionTest, ReduceMaxDim1_3D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_max_dim1_3d",
         base::DeviceType::kDeviceCPU,
@@ -377,7 +377,7 @@ TEST_F(ReductionTest, ReduceMaxDim1_3D) {
 }
 
 TEST_F(ReductionTest, ReduceMinDimNegative) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_min_dim_negative",
         base::DeviceType::kDeviceCPU,
@@ -407,7 +407,7 @@ TEST_F(ReductionTest, ReduceMinDimNegative) {
 // ==================== 大向量测试（触发 OpenMP） ====================
 
 TEST_F(ReductionTest, GlobalSumLarge) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_sum_large",
         base::DeviceType::kDeviceCPU,
@@ -437,7 +437,7 @@ TEST_F(ReductionTest, GlobalSumLarge) {
 }
 
 TEST_F(ReductionTest, ReduceDimLarge2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_sum_dim_large",
         base::DeviceType::kDeviceCPU,
@@ -473,7 +473,7 @@ TEST_F(ReductionTest, ReduceDimLarge2D) {
 // ==================== 边界值测试 ====================
 
 TEST_F(ReductionTest, SingleElement) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_single_element",
         base::DeviceType::kDeviceCPU,
@@ -496,7 +496,7 @@ TEST_F(ReductionTest, SingleElement) {
 }
 
 TEST_F(ReductionTest, EmptyInput) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_empty_input",
         base::DeviceType::kDeviceCPU,
@@ -515,7 +515,7 @@ TEST_F(ReductionTest, EmptyInput) {
 }
 
 TEST_F(ReductionTest, WrongDataType) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_wrong_dtype",
         base::DeviceType::kDeviceCPU,
@@ -534,7 +534,7 @@ TEST_F(ReductionTest, WrongDataType) {
 }
 
 TEST_F(ReductionTest, ZeroInput) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_zero_input",
         base::DeviceType::kDeviceCPU,
@@ -557,7 +557,7 @@ TEST_F(ReductionTest, ZeroInput) {
 }
 
 TEST_F(ReductionTest, NegativeNumbers) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_negative",
         base::DeviceType::kDeviceCPU,
@@ -628,7 +628,7 @@ protected:
 };
 
 TEST_F(CudaReductionTest, GlobalSum1D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_sum_1d",
         base::DeviceType::kDeviceCUDA,
@@ -654,7 +654,7 @@ TEST_F(CudaReductionTest, GlobalSum1D) {
 }
 
 TEST_F(CudaReductionTest, GlobalMean2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_mean_2d",
         base::DeviceType::kDeviceCUDA,
@@ -678,7 +678,7 @@ TEST_F(CudaReductionTest, GlobalMean2D) {
 }
 
 TEST_F(CudaReductionTest, GlobalMax3D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_max_3d",
         base::DeviceType::kDeviceCUDA,
@@ -703,7 +703,7 @@ TEST_F(CudaReductionTest, GlobalMax3D) {
 }
 
 TEST_F(CudaReductionTest, GlobalMin) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_min",
         base::DeviceType::kDeviceCUDA,
@@ -728,7 +728,7 @@ TEST_F(CudaReductionTest, GlobalMin) {
 }
 
 TEST_F(CudaReductionTest, GlobalAllTrue) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_all_true",
         base::DeviceType::kDeviceCUDA,
@@ -752,7 +752,7 @@ TEST_F(CudaReductionTest, GlobalAllTrue) {
 }
 
 TEST_F(CudaReductionTest, GlobalAllFalse) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_all_false",
         base::DeviceType::kDeviceCUDA,
@@ -777,7 +777,7 @@ TEST_F(CudaReductionTest, GlobalAllFalse) {
 }
 
 TEST_F(CudaReductionTest, GlobalAnyTrue) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_any_true",
         base::DeviceType::kDeviceCUDA,
@@ -802,7 +802,7 @@ TEST_F(CudaReductionTest, GlobalAnyTrue) {
 }
 
 TEST_F(CudaReductionTest, GlobalAnyFalse) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_any_false",
         base::DeviceType::kDeviceCUDA,
@@ -826,7 +826,7 @@ TEST_F(CudaReductionTest, GlobalAnyFalse) {
 }
 
 TEST_F(CudaReductionTest, GlobalSumLarge) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_global_sum_large",
         base::DeviceType::kDeviceCUDA,
@@ -863,7 +863,7 @@ TEST_F(CudaReductionTest, GlobalSumLarge) {
 }
 
 TEST_F(CudaReductionTest, ZeroInput) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_zero_input",
         base::DeviceType::kDeviceCUDA,
@@ -887,7 +887,7 @@ TEST_F(CudaReductionTest, ZeroInput) {
 }
 
 TEST_F(CudaReductionTest, NegativeNumbers) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_negative",
         base::DeviceType::kDeviceCUDA,
@@ -912,7 +912,7 @@ TEST_F(CudaReductionTest, NegativeNumbers) {
 
 
 TEST_F(CudaReductionTest, ReduceSumDim0_2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_sum_dim0_2d",
         base::DeviceType::kDeviceCUDA,
@@ -952,7 +952,7 @@ TEST_F(CudaReductionTest, ReduceSumDim0_2D) {
 }
 
 TEST_F(CudaReductionTest, ReduceSumDim1_2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_sum_dim1_2d",
         base::DeviceType::kDeviceCUDA,
@@ -990,7 +990,7 @@ TEST_F(CudaReductionTest, ReduceSumDim1_2D) {
 }
 
 TEST_F(CudaReductionTest, ReduceMeanDim0_3D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_mean_dim0_3d",
         base::DeviceType::kDeviceCUDA,
@@ -1031,7 +1031,7 @@ TEST_F(CudaReductionTest, ReduceMeanDim0_3D) {
 }
 
 TEST_F(CudaReductionTest, ReduceMaxDim1_3D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_max_dim1_3d",
         base::DeviceType::kDeviceCUDA,
@@ -1072,7 +1072,7 @@ TEST_F(CudaReductionTest, ReduceMaxDim1_3D) {
 }
 
 TEST_F(CudaReductionTest, ReduceMinDimNegative) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_min_dim_negative",
         base::DeviceType::kDeviceCUDA,
@@ -1109,7 +1109,7 @@ TEST_F(CudaReductionTest, ReduceMinDimNegative) {
 }
 
 TEST_F(CudaReductionTest, ReduceSumDimLarge2D) {
-    ops::kernel::Reduction reduction(
+    ops::Reduction reduction(
         base::DataType::kDataFloat32,
         "test_cuda_sum_dim_large",
         base::DeviceType::kDeviceCUDA,

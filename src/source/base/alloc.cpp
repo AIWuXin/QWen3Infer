@@ -14,7 +14,7 @@ namespace qwi::base {
         const void *src, void *dst,
         size_t byte_size, MemcpyKind memcpy_kind,
         void *stream, bool need_sync
-    ) const {
+    ) {
         CHECK_NE(src, nullptr);
         CHECK_NE(dst, nullptr);
         if (byte_size <= 0) {
@@ -87,13 +87,13 @@ namespace qwi::base {
     void DeviceAllocator::memset_zero(
         void *ptr, size_t byte_size,
         void *stream, bool need_sync
-    ) {
+    ) const {
         CHECK(this->device_type_ != DeviceType::kDeviceUnknown);
         if (this->device_type_ == DeviceType::kDeviceCPU) {
             std::memset(ptr, 0, byte_size);
         } else {
             if (stream) {
-                const cudaStream_t cuda_stream = static_cast<cudaStream_t>(stream);
+                const auto cuda_stream = static_cast<cudaStream_t>(stream);
                 cudaMemsetAsync(ptr, 0, byte_size, cuda_stream);
                 if (need_sync) {
                     cudaStreamSynchronize(cuda_stream);

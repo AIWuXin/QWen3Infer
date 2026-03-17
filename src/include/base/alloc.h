@@ -40,20 +40,20 @@ namespace qwi::base {
         }
         [[nodiscard]] virtual MemoryBuffer allocate(size_t byte_size) const = 0;
         virtual void release(MemoryBuffer &ptr) const = 0;
-        virtual void memcpy(
+        static void memcpy(
             const void* src,
             void* dst,
             size_t byte_size,
             MemcpyKind memcpy_kind = MemcpyKind::kMemcpyHost2Host,
             void* stream = nullptr,
             bool need_sync = false
-        ) const;
-        virtual void memset_zero(
+        );
+        void memset_zero(
             void* ptr,
             size_t byte_size,
             void* stream = nullptr,
             bool need_sync = false
-        );
+        ) const;
     };
 
     class CpuDeviceAllocator: public DeviceAllocator {

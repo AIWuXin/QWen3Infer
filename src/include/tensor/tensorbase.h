@@ -67,6 +67,13 @@ namespace qwi::tensor {
             size_t byte_size,
             base::DeviceType device_type
         );
+
+        [[nodiscard]] base::Status fill(
+            double value,
+            int32_t dim,
+            size_t count
+        ) const;
+
         [[nodiscard]] size_t byte_size() const;
         // TODO: 待实现类型转换
         base::ReturnStatus to_float();  // 不是真正的类型转换，待实现
@@ -102,25 +109,32 @@ namespace qwi::tensor {
         [[nodiscard]] size_t dim(size_t idx) const;
         [[nodiscard]] std::vector<size_t> dims() const;
         [[nodiscard]] size_t size() const;
+
+        friend Tensor operator+(const Tensor &self, const Tensor &other);
+        friend Tensor operator-(const Tensor &self, const Tensor &other);
+        friend Tensor operator*(const Tensor &self, const Tensor &other);
+        friend Tensor operator/(const Tensor &self, const Tensor &other);
+
+        friend Tensor operator+(const Tensor &self, double scalar);
+        friend Tensor operator-(const Tensor &self, double scalar);
+        friend Tensor operator*(const Tensor &self, double scalar);
+        friend Tensor operator/(const Tensor &self, double scalar);
+
+        friend Tensor operator+(double scalar, const Tensor &self);
+        friend Tensor operator-(double scalar, const Tensor &self);
+        friend Tensor operator*(double scalar, const Tensor &self);
+        friend Tensor operator/(double scalar, const Tensor &self);
+
+        Tensor operator+=(const Tensor &other);
+        Tensor operator-=(const Tensor &other);
+        Tensor operator*=(const Tensor &other);
+        Tensor operator/=(const Tensor &other);
+
+        Tensor operator+=(double scalar);
+        Tensor operator-=(double scalar);
+        Tensor operator*=(double scalar);
+        Tensor operator/=(double scalar);
     };
-
-    Tensor empty(
-        std::vector<size_t> dims,
-        base::DataType data_type = base::DataType::kDataFloat32,
-        base::DeviceType device_type = base::DeviceType::kDeviceCPU
-    );
-
-    Tensor zeros(
-        std::vector<size_t> dims,
-        base::DataType data_type = base::DataType::kDataFloat32,
-        base::DeviceType device_type = base::DeviceType::kDeviceCPU
-    );
-
-    Tensor ones(
-        std::vector<size_t> dims,
-        base::DataType data_type = base::DataType::kDataFloat32,
-        base::DeviceType device_type = base::DeviceType::kDeviceCPU
-    );
 
     template <typename T, typename Tp>
     static size_t reduce_dimension(T begin, T end, Tp init) {

@@ -174,8 +174,8 @@ namespace qwi::ops {
         tensor::Tensor &get_output(size_t idx) override;
         void set_input(size_t idx, const tensor::Tensor &input) override;
         void set_output(size_t idx, const tensor::Tensor &output) override;
-        size_t input_size() const override;
-        size_t output_size() const override;
+        [[nodiscard]] size_t input_size() const override;
+        [[nodiscard]] size_t output_size() const override;
         void set_cuda_config(const std::shared_ptr<base::CudaConfig> &config);
     protected:
         std::vector<tensor::Tensor> inputs_;
@@ -199,9 +199,9 @@ namespace qwi::ops {
 class WeightedLayer : public CommonLayer {
     public:
         explicit WeightedLayer(
-            base::DeviceType device_type,
-            base::LayerType layer_type,
-            base::DataType data_type,
+            const base::DeviceType device_type,
+            const base::LayerType layer_type,
+            const base::DataType data_type,
             std::string layer_name = ""
         ) : CommonLayer(
             device_type,
@@ -232,7 +232,7 @@ class WeightedLayer : public CommonLayer {
             return weights_[idx];
         }
 
-        tensor::Tensor& weight(size_t idx) {
+        tensor::Tensor& weight(const size_t idx) {
             CHECK_LT(idx, weights_.size());
             return weights_[idx];
         }
