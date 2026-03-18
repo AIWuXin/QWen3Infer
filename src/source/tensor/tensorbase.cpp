@@ -64,11 +64,12 @@ namespace qwi::tensor {
         const std::shared_ptr<base::DeviceAllocator>& allocator,
         const std::shared_ptr<base::Buffer> &buffer
     ) : dims_(std::move(dims)), data_type_(data_type) {
-        const auto element_count = reduce_dimension(
+        const auto element_count = this->ndims() == 0 ? size_t{0} : reduce_dimension(
             this->dims_.begin(),
             this->dims_.end(),
             size_t{1}
         );
+
         this->size_ = element_count;
 
         if (allocator && !buffer) {
@@ -180,8 +181,8 @@ namespace qwi::tensor {
         return strides;
     }
 
-    size_t Tensor::ndims() const {
-        return this->dims_.size();
+    int32_t Tensor::ndims() const {
+        return static_cast<int32_t>(this->dims_.size());
     }
 
     bool Tensor::is_empty() const {
@@ -213,6 +214,35 @@ namespace qwi::tensor {
 
     size_t Tensor::size() const {
         return this->size_;
+    }
+
+    void Tensor::cuda() {
+
+    }
+
+    void Tensor::cpu() {
+        CHECK_NE(buffer_, nullptr);
+
+        base::CudaContext::synchronize();
+        const base::DeviceType device_type = this->get_device_type();
+
+        if (device_type == base::DeviceType::kDeviceUnknown) {
+            LOG(ERROR) << "The device type of the tensor is unknown.";
+        } else if (device_type == base::DeviceType::kDeviceCUDA) {
+            size_t byte_size = this->byte_size();
+            auto cpu_alloc = base::CpuDeviceAllocatorFactory::get_instance();
+            auto buffer = base::MemoryBuffer(
+                nullptr, byte_size, true
+            );
+            auto cpu_buffer = std::make_shared<base::Buffer>(buffer, cpu_alloc);
+            cpu_alloc->memcpy(
+            buffer_->get_ptr(), cpu_buffer->get_ptr(), byte_size,
+                base::MemcpyKind::kMemcpyHost2Device
+            );
+            this->buffer_ = cpu_buffer;
+        } else {
+            LOG(INFO) << "The device type of the tensor is already cpu.";
+        }
     }
 
     base::ReturnStatus Tensor::init_buffer(

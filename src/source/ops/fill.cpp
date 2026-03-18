@@ -28,7 +28,7 @@ namespace qwi::ops {
             );
         }
 
-        if (this->dim() >= input0.ndims()) {
+        if (this->dim() >= static_cast<int32_t>(input0.ndims())) {
             LOG(ERROR) << "The dimension `dim` must be less than `ndims` in input0!";
             return base::Status(
                 base::ReturnStatus::InvalidArgument,
@@ -70,18 +70,23 @@ namespace qwi::ops {
                     this->count_,
                     stream
                 );
+                break;
             } default: {
                 LOG(FATAL) << "Unsupported data type.";
                 throw std::runtime_error("Unsupported data type.");
             }
         }
+
+        return base::Status(
+            base::ReturnStatus::Success
+        );
     }
 
     inline double Fill::get_value() const {
         return this->value_;
     }
 
-    inline size_t Fill::dim() const {
+    inline int32_t Fill::dim() const {
         return this->dim_;
     }
 

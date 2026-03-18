@@ -37,7 +37,7 @@ namespace qwi::ops::kernel {
 
         CHECK_EQ(input0.is_empty(), false);
         CHECK(dim < input0.ndims());
-        CHECK(count < input0.size());
+        CHECK(count <= input0.size());
 
         if (dim == INT_MIN) {
             #ifdef USE_OPENMP

@@ -62,11 +62,9 @@ namespace qwi::ops::kernel {
         }
 
         #ifndef NDEBUG
-            cudaDeviceSynchronize();
-            const cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess) {
-                LOG(FATAL) << "CUDA kernel failed: " << cudaGetErrorString(err);
-            }
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            LOG(ERROR) << "Kernel launch failed: " << cudaGetErrorString(err);
+        }
         #endif
     }
 

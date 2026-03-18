@@ -10,6 +10,8 @@
 #include <driver_types.h>
 #include <glog/logging.h>
 
+#include "context.h"
+
 
 namespace qwi::base {
     constexpr size_t KB = 1 << 10;   // 1024
@@ -203,8 +205,24 @@ namespace qwi::base {
 
     struct CudaConfig {
         cudaStream_t stream = nullptr;
+        bool owns_stream = false;  // 标记是否拥有 stream（需要销毁）
+
+        CudaConfig() {
+            // 默认使用 CudaContext 的 stream，不创建新的
+            stream = CudaContext::current_stream();
+            owns_stream = false;
+        }
+
+        CudaConfig(
+            cudaStream_t stream
+        ) {
+            this->stream = stream;
+            owns_stream = true;
+        }
+
         ~CudaConfig() {
-            if (stream) {
+            // 只有拥有自己的 stream 时才销毁
+            if (owns_stream && stream) {
                 cudaStreamDestroy(stream);
             }
         }

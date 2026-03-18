@@ -27,7 +27,7 @@ namespace qwi::tensor {
         }
 
         auto tensor = Tensor(
-            data_type, std::move(dims), device_type,
+            data_type, dims, device_type,
             allocator, nullptr
         );
 
@@ -241,32 +241,28 @@ namespace qwi::tensor {
     Tensor add(const Tensor &a, double scalar) {
         Tensor out = detail::create_like(a);
         // 先填充标量值，然后做 elementwise add
-        auto status = out.fill(scalar, INT_MIN, out.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(out.fill(scalar, INT_MIN, out.size()));
         STATUS_CHECK(detail::run_elementwise(a, out, out, base::ElementWiseType::kElementAdd));
         return out;
     }
 
     Tensor sub(const Tensor &a, double scalar) {
         Tensor out = detail::create_like(a);
-        auto status = out.fill(scalar, INT_MIN, out.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(out.fill(scalar, INT_MIN, out.size()));
         STATUS_CHECK(detail::run_elementwise(a, out, out, base::ElementWiseType::kElementSubtract));
         return out;
     }
 
     Tensor mul(const Tensor &a, double scalar) {
         Tensor out = detail::create_like(a);
-        auto status = out.fill(scalar, INT_MIN, out.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(out.fill(scalar, INT_MIN, out.size()));
         STATUS_CHECK(detail::run_elementwise(a, out, out, base::ElementWiseType::kElementMultiply));
         return out;
     }
 
     Tensor div(const Tensor &a, double scalar) {
         Tensor out = detail::create_like(a);
-        auto status = out.fill(scalar, INT_MIN, out.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(out.fill(scalar, INT_MIN, out.size()));
         STATUS_CHECK(detail::run_elementwise(a, out, out, base::ElementWiseType::kElementDivide));
         return out;
     }
@@ -274,32 +270,28 @@ namespace qwi::tensor {
     // ========== 标量运算（in-place）==========
     Tensor& add_(Tensor &a, double scalar) {
         Tensor tmp = detail::create_like(a);
-        auto status = tmp.fill(scalar, INT_MIN, tmp.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(tmp.fill(scalar, INT_MIN, tmp.size()));
         STATUS_CHECK(detail::run_elementwise(a, tmp, a, base::ElementWiseType::kElementAdd));
         return a;
     }
 
     Tensor& sub_(Tensor &a, double scalar) {
         Tensor tmp = detail::create_like(a);
-        auto status = tmp.fill(scalar, INT_MIN, tmp.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(tmp.fill(scalar, INT_MIN, tmp.size()));
         STATUS_CHECK(detail::run_elementwise(a, tmp, a, base::ElementWiseType::kElementSubtract));
         return a;
     }
 
     Tensor& mul_(Tensor &a, double scalar) {
         Tensor tmp = detail::create_like(a);
-        auto status = tmp.fill(scalar, INT_MIN, tmp.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(tmp.fill(scalar, INT_MIN, tmp.size()));
         STATUS_CHECK(detail::run_elementwise(a, tmp, a, base::ElementWiseType::kElementMultiply));
         return a;
     }
 
     Tensor& div_(Tensor &a, double scalar) {
         Tensor tmp = detail::create_like(a);
-        auto status = tmp.fill(scalar, INT_MIN, tmp.size());
-        STATUS_CHECK(status);
+        STATUS_CHECK(tmp.fill(scalar, INT_MIN, tmp.size()));
         STATUS_CHECK(detail::run_elementwise(a, tmp, a, base::ElementWiseType::kElementDivide));
         return a;
     }

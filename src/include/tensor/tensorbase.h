@@ -102,7 +102,7 @@ namespace qwi::tensor {
         T& operator[](std::vector<size_t> indices);
         template <typename T>
         const T& operator[](std::vector<size_t> indices) const;
-        [[nodiscard]] size_t ndims() const;
+        [[nodiscard]] int32_t ndims() const;
         [[nodiscard]] bool is_empty() const;
         [[nodiscard]] base::DataType get_data_type() const;
         [[nodiscard]] base::DeviceType get_device_type() const;
@@ -134,6 +134,9 @@ namespace qwi::tensor {
         Tensor operator-=(double scalar);
         Tensor operator*=(double scalar);
         Tensor operator/=(double scalar);
+
+        void cuda();
+        void cpu();
     };
 
     template <typename T, typename Tp>
@@ -174,6 +177,12 @@ namespace qwi::tensor {
             LOG(FATAL) << "index out of bounds" << std::endl;
             throw std::out_of_range("index out of bounds");
         }
+
+        if (this->get_device_type() == base::DeviceType::kDeviceCUDA) {
+            // 如果数据在 GPU，需要同步确保计算完成
+            base::CudaContext::synchronize();
+        }
+
         T& val = *(
             static_cast<T *>(this->buffer_->get_ptr()) + offset
         );
@@ -187,6 +196,11 @@ namespace qwi::tensor {
             throw std::out_of_range("index out of bounds");
         }
 
+        if (this->get_device_type() == base::DeviceType::kDeviceCUDA) {
+            // 如果数据在 GPU，需要同步确保计算完成
+            base::CudaContext::synchronize();
+        }
+
         const T& val = *(
             static_cast<T *>(this->buffer_->get_ptr()) + offset
         );
@@ -198,6 +212,11 @@ namespace qwi::tensor {
         if (indices.size() != this->ndims()) {
             LOG(FATAL) << "indices size must equal ndims!" << std::endl;
             throw std::out_of_range("indices size must equal ndims!");
+        }
+
+        if (this->get_device_type() == base::DeviceType::kDeviceCUDA) {
+            // 如果数据在 GPU，需要同步确保计算完成
+            base::CudaContext::synchronize();
         }
 
         for (int idx = 0; idx < this->ndims(); ++idx) {
@@ -225,6 +244,11 @@ namespace qwi::tensor {
         if (indices.size() != this->ndims()) {
             LOG(FATAL) << "indices size must equal ndims!" << std::endl;
             throw std::out_of_range("indices size must equal ndims!");
+        }
+
+        if (this->get_device_type() == base::DeviceType::kDeviceCUDA) {
+            // 如果数据在 GPU，需要同步确保计算完成
+            base::CudaContext::synchronize();
         }
 
         for (int idx = 0; idx < this->ndims(); ++idx) {

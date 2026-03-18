@@ -676,7 +676,7 @@ TEST_F(TensorFunctionTest, HighDimSum) {
 // ========== 性能/大 Tensor 测试 ==========
 
 TEST_F(TensorFunctionTest, LargeTensorAdd) {
-    const size_t n = 1000;
+    const size_t n = 2000;
     auto a = create_filled_tensor({n, n}, 1.0f);
     auto b = create_filled_tensor({n, n}, 2.0f);
 

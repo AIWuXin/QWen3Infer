@@ -57,7 +57,7 @@ namespace qwi::ops::kernel {
         constexpr size_t thread_num0 = 256;
         const size_t block_num0 = std::min<size_t>(
             (size + thread_num0 - 1) / thread_num0,
-            1024  // 限制最大 block 数，避免过小的工作量
+            1024 * 4  // 限制最大 block 数，避免过小的工作量
         );
         constexpr size_t thread_num1 = 256;
         const size_t block_num1 = block_num0 > thread_num0 ?
@@ -108,7 +108,7 @@ namespace qwi::ops::kernel {
         void *stream
     ) {
         if (dim < 0) {
-            dim += static_cast<int32_t>(input0.ndims());
+            dim += input0.ndims();
         }
 
         const auto input_dims = input0.dims();
@@ -135,10 +135,10 @@ namespace qwi::ops::kernel {
                     outer_size,
                     reduce_dim_size,
                     inner_size,
-                    input_strides[0],
+                    input_strides[std::min<size_t>(dim-1, 0)],
                     input_strides[dim],
                     static_cast<float>(reduce_dim_size)  // for Mean
-                );
+            );
         } else {
             reduction_dim_kernel_cu_launch<Op>
                 <<<total_outputs, thread_num>>>(
@@ -147,11 +147,17 @@ namespace qwi::ops::kernel {
                     outer_size,
                     reduce_dim_size,
                     inner_size,
-                    input_strides[0],
+                    input_strides[std::min<size_t>(dim-1, 0)],
                     input_strides[dim],
                     static_cast<float>(reduce_dim_size)
-                );
+            );
         }
+
+        #ifndef NDEBUG
+            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+                LOG(ERROR) << "Kernel launch failed: " << cudaGetErrorString(err);
+            }
+        #endif
     }
 
 #define INSTANTIATE_REDUCTION_DEVICE(OP, T)                      \

@@ -30,7 +30,7 @@ namespace qwi::ops {
         [[nodiscard]] base::Status check() const override;
         base::Status forward() override;
         [[nodiscard]] double get_value() const;
-        [[nodiscard]] size_t dim() const;
+        [[nodiscard]] int32_t dim() const;
         [[nodiscard]] size_t count() const;
         void set_value(double value);
         void set_dim(size_t dim);
