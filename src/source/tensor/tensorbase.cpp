@@ -216,30 +216,26 @@ namespace qwi::tensor {
         return this->size_;
     }
 
-    void Tensor::cuda() {
+    void Tensor::cuda(size_t device_idx) {
+        CHECK_NE(buffer_, nullptr);
+        const base::DeviceType device_type = this->get_device_type();
 
+        if (device_type == base::DeviceType::kDeviceCUDA) {
+            LOG(INFO) << "The device type of the tensor is already on cuda.";
+        } else if (device_type == base::DeviceType::kDeviceCPU) {
+            this->buffer_->cuda(device_idx);
+        }
     }
 
     void Tensor::cpu() {
         CHECK_NE(buffer_, nullptr);
-
-        base::CudaContext::synchronize();
         const base::DeviceType device_type = this->get_device_type();
 
         if (device_type == base::DeviceType::kDeviceUnknown) {
-            LOG(ERROR) << "The device type of the tensor is unknown.";
+            LOG(ERROR) << "The device type of the tensor is on unknown.";
         } else if (device_type == base::DeviceType::kDeviceCUDA) {
-            size_t byte_size = this->byte_size();
-            auto cpu_alloc = base::CpuDeviceAllocatorFactory::get_instance();
-            auto buffer = base::MemoryBuffer(
-                nullptr, byte_size, true
-            );
-            auto cpu_buffer = std::make_shared<base::Buffer>(buffer, cpu_alloc);
-            cpu_alloc->memcpy(
-            buffer_->get_ptr(), cpu_buffer->get_ptr(), byte_size,
-                base::MemcpyKind::kMemcpyHost2Device
-            );
-            this->buffer_ = cpu_buffer;
+            base::CudaContext::synchronize();
+            this->buffer_->cpu();
         } else {
             LOG(INFO) << "The device type of the tensor is already cpu.";
         }

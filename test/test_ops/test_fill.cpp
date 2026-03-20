@@ -304,11 +304,19 @@ TEST_F(FillTest, TensorFillMemberFunction) {
 // ========== CUDA 测试 ==========
 
 TEST_F(FillTest, FillGlobalCUDA) {
+    std::cout << "[DEBUG] Creating tensor..." << std::endl;
     auto tensor = create_test_tensor({100, 100}, base::DeviceType::kDeviceCUDA);
+    std::cout << "[DEBUG] Tensor created, size=" << tensor.size() << std::endl;
 
+    std::cout << "[DEBUG] Calling fill..." << std::endl;
     const auto status = tensor.fill(3.14, INT_MIN, 10000);
+    std::cout << "[DEBUG] Fill returned" << std::endl;
+
     EXPECT_TRUE(status);
+
+    std::cout << "[DEBUG] Calling cpu()..." << std::endl;
     tensor.cpu();
+    std::cout << "[DEBUG] cpu() returned" << std::endl;
 
     for (size_t i = 0; i < 100; ++i) {
         for (size_t j = 0; j < 100; ++j) {

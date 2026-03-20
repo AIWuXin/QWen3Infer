@@ -42,10 +42,17 @@ namespace qwi::base {
 
     private:
         CudaContext() {
-            cudaStreamCreate(&stream_);
+            int device = 0;
+            cudaError_t err = cudaGetDevice(&device);  // 检查是否有激活的设备
+            if (err != cudaSuccess) {
+                // 没有激活的设备，设置默认设备
+                cudaSetDevice(0);
+            }
+            // cudaStreamCreate(&stream_);
+            stream_ = nullptr;
         }
         ~CudaContext() {
-            cudaStreamDestroy(stream_);
+            // cudaStreamDestroy(stream_);
         }
 
         static CudaContext& instance() {

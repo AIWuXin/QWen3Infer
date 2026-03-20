@@ -204,7 +204,7 @@ namespace qwi::base {
     } while (0)
 
     struct CudaConfig {
-        cudaStream_t stream = nullptr;
+        cudaStream_t stream;
         bool owns_stream = false;  // 标记是否拥有 stream（需要销毁）
 
         CudaConfig() {

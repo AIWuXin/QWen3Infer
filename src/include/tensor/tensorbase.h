@@ -135,7 +135,7 @@ namespace qwi::tensor {
         Tensor operator*=(double scalar);
         Tensor operator/=(double scalar);
 
-        void cuda();
+        void cuda(size_t device_idx);
         void cpu();
     };
 

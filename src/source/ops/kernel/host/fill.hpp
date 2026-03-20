@@ -71,7 +71,7 @@ namespace qwi::ops::kernel {
 
         const auto dims = input0.dims();
         const auto strides = input0.strides();
-        const size_t dim_size = dims[dim];
+        size_t stride_outer = (dim > 0) ? strides[dim - 1] : 0;
 
         const size_t outer_size = tensor::reduce_dimension(
             dims.begin(), dims.begin() + dim, size_t{1}
@@ -85,11 +85,11 @@ namespace qwi::ops::kernel {
         if (outer_size * inner_size >= 256) {
             #pragma omp parallel for collapse(2) schedule(static, 64) \
             default(none) shared(outer_size, inner_size, count, \
-            out_ptr, strides, dim, value)
+            out_ptr, strides, dim, value, stride_outer)
             for (size_t i = 0; i < outer_size; ++i) {
                 for (size_t j = 0; j < inner_size; ++j) {
                     for (size_t k = 0; k < count; ++k) {
-                        const size_t idx = i * strides[0] + k * strides[dim] + j;
+                        const size_t idx = i * stride_outer + k * strides[dim] + j;
                         out_ptr[idx] = value;
                     }
                 }

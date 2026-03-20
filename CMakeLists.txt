@@ -63,6 +63,7 @@ if (QWEN3_SUPPORT)
 endif()
 
 option(USE_CPM "Use CPM for dependency management" OFF)
+set(CPM_USE_LOCAL_PACKAGES ON)
 if(USE_CPM)
     # ==========================================
     # 自动下载 CPM.cmake
@@ -204,12 +205,14 @@ add_executable(
 target_link_libraries(
         QWen3Infer
         glog::glog
+        cudart
 )
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(
             QWen3Infer
             OpenMP::OpenMP_CXX
+            cudart
     )
 endif()
 
@@ -258,11 +261,13 @@ if (TEST_BASE)
             GTest::gtest
             GTest::gtest_main
             GTest::gmock
+            cudart
     )
     if(OpenMP_CXX_FOUND)
         target_link_libraries(
                 test_base
                 OpenMP::OpenMP_CXX
+                cudart
         )
     endif ()
     set_target_properties(
@@ -284,11 +289,13 @@ if (TEST_TENSOR)
             GTest::gtest
             GTest::gtest_main
             GTest::gmock
+            cudart
     )
     if(OpenMP_CXX_FOUND)
         target_link_libraries(
                 test_tensor
                 OpenMP::OpenMP_CXX
+                cudart
         )
     endif ()
     set_target_properties(
@@ -310,11 +317,13 @@ if (TEST_OPS)
             GTest::gtest
             GTest::gtest_main
             GTest::gmock
+            cudart
     )
     if(OpenMP_CXX_FOUND)
         target_link_libraries(
                 test_ops
                 OpenMP::OpenMP_CXX
+                cudart
         )
     endif ()
     set_target_properties(

@@ -116,6 +116,10 @@ namespace qwi::ops::kernel {
                 LOG(ERROR) << "Kernel launch failed: " << cudaGetErrorString(err);
             }
         #endif
+
+        if (stream) {
+            cudaStreamSynchronize(static_cast<cudaStream_t>(stream));
+        }
     }
 
     template void fill_kernel_device<float>(

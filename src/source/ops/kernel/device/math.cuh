@@ -260,27 +260,40 @@ namespace qwi::ops::kernel {
         }
     }
 
+    // __device__ __forceinline__ void fill_kernel_cu(
+    //     float* __restrict in0,
+    //     const size_t count,
+    //     const float value
+    // ) {
+    //     const size_t global_idx = threadIdx.x + blockDim.x * blockIdx.x;
+    //     const size_t total_threads = blockDim.x * gridDim.x;
+    //
+    //     // ===== 向量化版本：每次处理 4 个 float =====
+    //     const size_t vec_count = count / 4;
+    //     const float4 val4 = make_float4(value, value, value, value);
+    //     auto vec_ptr = reinterpret_cast<float4*>(in0);
+    //
+    //     // 向量化填充主体
+    //     for (size_t i = global_idx; i < vec_count; i += total_threads) {
+    //         vec_ptr[i] = val4;
+    //     }
+    //
+    //     // 处理尾部（非4对齐的部分）
+    //     const size_t scalar_start = vec_count * 4;
+    //     for (size_t i = scalar_start + global_idx; i < count; i += total_threads) {
+    //         in0[i] = value;
+    //     }
+    // }
+
     __device__ __forceinline__ void fill_kernel_cu(
         float* __restrict in0,
         const size_t count,
         const float value
     ) {
-        const size_t global_idx = threadIdx.x + blockDim.x * blockIdx.x;
-        const size_t total_threads = blockDim.x * gridDim.x;
+        const size_t idx = threadIdx.x + blockDim.x * blockIdx.x;
+        const size_t stride = blockDim.x * gridDim.x;
 
-        // ===== 向量化版本：每次处理 4 个 float =====
-        const size_t vec_count = count / 4;
-        const float4 val4 = make_float4(value, value, value, value);
-        auto vec_ptr = reinterpret_cast<float4*>(in0);
-
-        // 向量化填充主体
-        for (size_t i = global_idx; i < vec_count; i += total_threads) {
-            vec_ptr[i] = val4;
-        }
-
-        // 处理尾部（非4对齐的部分）
-        const size_t scalar_start = vec_count * 4;
-        for (size_t i = scalar_start + global_idx; i < count; i += total_threads) {
+        for (size_t i = idx; i < count; i += stride) {
             in0[i] = value;
         }
     }
@@ -292,47 +305,48 @@ namespace qwi::ops::kernel {
         const size_t outer_size,
         const size_t reduce_dim_size,
         const size_t inner_size,
-        const size_t stride_outer,  // input_strides[0]
-        const size_t stride_reduce // input_strides[dim]
+        const size_t stride_outer,
+        const size_t stride_reduce
     ) {
-        // 每个 block 处理一个 (i, j) 位置，填充 k=0 到 k=count-1
         const size_t out_idx = blockIdx.x;
-        const size_t i = out_idx / inner_size;      // 外层索引
-        const size_t j = out_idx % inner_size;      // 内层索引
+        const size_t i = out_idx / inner_size;
+        const size_t j = out_idx % inner_size;
         const size_t tid = threadIdx.x;
 
-        // 计算实际填充数量（不超过 reduce_dim_size）
         const size_t fill_count = (count < reduce_dim_size) ? count : reduce_dim_size;
+        const size_t base_idx = i * stride_outer + j;
 
         if (stride_reduce == 1) {
-            // ===== 连续内存路径：可向量化 =====
-            // 计算当前 (i, j) 在 k=0 位置的起始地址
-            float* row_ptr = in0 + i * stride_outer + j;
+            // 检查对齐
+            float* row_ptr = in0 + base_idx;
+            const bool is_aligned = (reinterpret_cast<uintptr_t>(row_ptr) % 16 == 0);
 
-            // 使用 float4 向量化，一次写 4 个元素
-            const size_t vec_size = fill_count / 4;
-            float4 val4 = make_float4(value, value, value, value);
-            auto vec_row_ptr = reinterpret_cast<float4*>(row_ptr);
+            if (is_aligned && fill_count >= 4) {
+                // 向量化路径
+                const size_t vec_size = fill_count / 4;
+                float4 val4 = make_float4(value, value, value, value);
+                auto vec_ptr = reinterpret_cast<float4*>(row_ptr);
 
-            // 向量化填充
-            for (size_t k = tid; k < vec_size; k += blockDim.x) {
-                vec_row_ptr[k] = val4;
-            }
+                for (size_t k = tid; k < vec_size; k += blockDim.x) {
+                    vec_ptr[k] = val4;
+                }
 
-            // 处理剩余部分（非4对齐的尾部）
-            const size_t remainder_start = vec_size * 4;
-            for (size_t k = remainder_start + tid; k < fill_count; k += blockDim.x) {
-                row_ptr[k] = value;
+                // 尾部
+                const size_t remainder_start = vec_size * 4;
+                for (size_t k = remainder_start + tid; k < fill_count; k += blockDim.x) {
+                    row_ptr[k] = value;
+                }
+            } else {
+                // 回退到标量
+                for (size_t k = tid; k < fill_count; k += blockDim.x) {
+                    row_ptr[k] = value;
+                }
             }
         } else {
-            // ===== 非连续内存路径：按索引计算 =====
-            // 计算基地址：i * stride_outer + j
-            const size_t base_idx = i * stride_outer + j;
-
+            // 非连续路径
             for (size_t k = tid; k < fill_count; k += blockDim.x) {
-                // in_idx = i * stride_outer + k * stride_reduce + j
-                const size_t in_idx = base_idx + k * stride_reduce;
-                in0[in_idx] = value;
+                const size_t idx = base_idx + k * stride_reduce;
+                in0[idx] = value;
             }
         }
     }

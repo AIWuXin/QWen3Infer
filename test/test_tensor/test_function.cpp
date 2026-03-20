@@ -49,11 +49,14 @@ TEST_F(TensorFunctionTest, EmptyCreatesUninitializedTensor) {
 
 TEST_F(TensorFunctionTest, ZerosCreatesZeroFilledTensor) {
     auto t = tensor::zeros({2, 3}, base::DataType::kDataFloat32, base::DeviceType::kDeviceCPU);
+    auto t_cuda = tensor::zeros({2, 3}, base::DataType::kDataFloat32, base::DeviceType::kDeviceCUDA);
+    t_cuda.cpu();
     EXPECT_EQ(t.dims(), (std::vector<size_t>{2, 3}));
 
     for (size_t i = 0; i < 2; ++i) {
         for (size_t j = 0; j < 3; ++j) {
             EXPECT_FLOAT_EQ(t.index<float>({i, j}), 0.0f);
+            EXPECT_FLOAT_EQ(t_cuda.index<float>({i, j}), 0.0f);
         }
     }
 }
