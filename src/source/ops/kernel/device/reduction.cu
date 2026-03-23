@@ -46,8 +46,6 @@ namespace qwi::ops::kernel {
         [[maybe_unused]] int32_t dim,
         void *stream
     ) {
-        UNUSED(stream);
-
         CHECK_EQ(input0.is_empty(), false);
         CHECK_EQ(output0.is_empty(), false);
         CHECK_EQ(output0.ndims() == 1, true);
@@ -135,7 +133,7 @@ namespace qwi::ops::kernel {
                     outer_size,
                     reduce_dim_size,
                     inner_size,
-                    input_strides[std::min<size_t>(dim-1, 0)],
+                    (dim > 0) ? input_strides[static_cast<size_t>(dim) - 1] : 0,
                     input_strides[dim],
                     static_cast<float>(reduce_dim_size)  // for Mean
             );
@@ -147,7 +145,7 @@ namespace qwi::ops::kernel {
                     outer_size,
                     reduce_dim_size,
                     inner_size,
-                    input_strides[std::min<size_t>(dim-1, 0)],
+                    (dim > 0) ? input_strides[static_cast<size_t>(dim) - 1] : 0,
                     input_strides[dim],
                     static_cast<float>(reduce_dim_size)
             );

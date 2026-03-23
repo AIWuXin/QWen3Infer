@@ -48,11 +48,10 @@ namespace qwi::base {
                 // 没有激活的设备，设置默认设备
                 cudaSetDevice(0);
             }
-            // cudaStreamCreate(&stream_);
-            stream_ = nullptr;
+            cudaStreamCreate(&stream_);
         }
         ~CudaContext() {
-            // cudaStreamDestroy(stream_);
+            cudaStreamDestroy(stream_);
         }
 
         static CudaContext& instance() {

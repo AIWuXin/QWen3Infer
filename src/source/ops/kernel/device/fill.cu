@@ -4,6 +4,9 @@
 
 
 #include "fill.cuh"
+
+#include <iostream>
+
 #include "math.cuh"
 
 
@@ -45,8 +48,6 @@ namespace qwi::ops::kernel {
         size_t count,
         void* stream
     ) {
-        UNUSED(stream);
-
         CHECK_EQ(input0.is_empty(), false);
         CHECK(count > 0);
         CHECK(count <= input0.size());
@@ -95,7 +96,7 @@ namespace qwi::ops::kernel {
                     fill_dim_kernel_cu_launch<<<block_num, thread_num, 0, cuda_stream>>>(
                         input0.ptr<float>(), count, value,
                         outer_size, reduce_dim_size, inner_size,
-                        input_strides[std::min<size_t>(dim-1, 0)],
+                        (dim > 0) ? input_strides[static_cast<size_t>(dim) - 1] : 0,
                         input_strides[dim]
                     );
                 }
@@ -104,7 +105,7 @@ namespace qwi::ops::kernel {
                     fill_dim_kernel_cu_launch<<<block_num, thread_num>>>(
                         input0.ptr<float>(), count, value,
                         outer_size, reduce_dim_size, inner_size,
-                        input_strides[std::min<size_t>(dim-1, 0)],
+                        (dim > 0) ? input_strides[static_cast<size_t>(dim) - 1] : 0,
                         input_strides[dim]
                     );
                 }
@@ -116,10 +117,6 @@ namespace qwi::ops::kernel {
                 LOG(ERROR) << "Kernel launch failed: " << cudaGetErrorString(err);
             }
         #endif
-
-        if (stream) {
-            cudaStreamSynchronize(static_cast<cudaStream_t>(stream));
-        }
     }
 
     template void fill_kernel_device<float>(

@@ -260,43 +260,43 @@ namespace qwi::ops::kernel {
         }
     }
 
-    // __device__ __forceinline__ void fill_kernel_cu(
-    //     float* __restrict in0,
-    //     const size_t count,
-    //     const float value
-    // ) {
-    //     const size_t global_idx = threadIdx.x + blockDim.x * blockIdx.x;
-    //     const size_t total_threads = blockDim.x * gridDim.x;
-    //
-    //     // ===== 向量化版本：每次处理 4 个 float =====
-    //     const size_t vec_count = count / 4;
-    //     const float4 val4 = make_float4(value, value, value, value);
-    //     auto vec_ptr = reinterpret_cast<float4*>(in0);
-    //
-    //     // 向量化填充主体
-    //     for (size_t i = global_idx; i < vec_count; i += total_threads) {
-    //         vec_ptr[i] = val4;
-    //     }
-    //
-    //     // 处理尾部（非4对齐的部分）
-    //     const size_t scalar_start = vec_count * 4;
-    //     for (size_t i = scalar_start + global_idx; i < count; i += total_threads) {
-    //         in0[i] = value;
-    //     }
-    // }
-
     __device__ __forceinline__ void fill_kernel_cu(
         float* __restrict in0,
         const size_t count,
         const float value
     ) {
-        const size_t idx = threadIdx.x + blockDim.x * blockIdx.x;
-        const size_t stride = blockDim.x * gridDim.x;
+        const size_t global_idx = threadIdx.x + blockDim.x * blockIdx.x;
+        const size_t total_threads = blockDim.x * gridDim.x;
 
-        for (size_t i = idx; i < count; i += stride) {
+        // ===== 向量化版本：每次处理 4 个 float =====
+        const size_t vec_count = count / 4;
+        const float4 val4 = make_float4(value, value, value, value);
+        auto vec_ptr = reinterpret_cast<float4*>(in0);
+
+        // 向量化填充主体
+        for (size_t i = global_idx; i < vec_count; i += total_threads) {
+            vec_ptr[i] = val4;
+        }
+
+        // 处理尾部（非4对齐的部分）
+        const size_t scalar_start = vec_count * 4;
+        for (size_t i = scalar_start + global_idx; i < count; i += total_threads) {
             in0[i] = value;
         }
     }
+
+    // __device__ __forceinline__ void fill_kernel_cu(
+    //     float* __restrict in0,
+    //     const size_t count,
+    //     const float value
+    // ) {
+    //     const size_t idx = threadIdx.x + blockDim.x * blockIdx.x;
+    //     const size_t stride = blockDim.x * gridDim.x;
+    //
+    //     for (size_t i = idx; i < count; i += stride) {
+    //         in0[i] = value;
+    //     }
+    // }
 
     __device__ __forceinline__ void fill_dim_kernel_cu(
         float* __restrict in0,

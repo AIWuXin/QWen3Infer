@@ -16,7 +16,7 @@ namespace qwi::ops {
             this->device_type(), input0.dims()
         );
         if (!status) {
-            LOG(ERROR) << "The input tensor 0 error in the reduction layer.";
+            LOG(ERROR) << "The input tensor 0 error in the reduction layer: " << status.get_message();
             return status;
         }
 

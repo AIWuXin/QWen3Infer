@@ -834,7 +834,7 @@ TEST_F(CudaReductionTest, GlobalSumLarge) {
         INT_MIN
     );
 
-    const size_t size = 10000000;  // 1M elements
+    const size_t size = 10000000;  // 10M elements
     std::vector<float> data(size, 1.0f);
 
     auto input = create_cuda_input(data, {size});
