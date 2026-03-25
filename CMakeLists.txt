@@ -62,7 +62,7 @@ if (QWEN3_SUPPORT)
     add_definitions(-DQWEN3_SUPPORT)
 endif()
 
-option(USE_CPM "Use CPM for dependency management" OFF)
+option(USE_CPM "Use CPM for dependency management" ON)
 set(CPM_USE_LOCAL_PACKAGES ON)
 if(USE_CPM)
     # ==========================================
@@ -120,17 +120,17 @@ if(USE_CPM)
             EXCLUDE_FROM_ALL YES
     )
 
-    CPMAddPackage(
-            NAME Armadillo
-            GITLAB_REPOSITORY conradsnicta/armadillo-code
-            GIT_TAG 14.0.1
-            EXCLUDE_FROM_ALL YES
-    )
+#    CPMAddPackage(
+#            NAME Armadillo
+#            GITLAB_REPOSITORY conradsnicta/armadillo-code
+#            GIT_TAG 14.0.1
+#            EXCLUDE_FROM_ALL YES
+#    )
 
     CPMAddPackage(
             NAME sentencepiece
             GITHUB_REPOSITORY google/sentencepiece
-            GIT_TAG master
+            VERSION 0.2.0
             EXCLUDE_FROM_ALL YES
     )
     find_package(sentencepiece REQUIRED)

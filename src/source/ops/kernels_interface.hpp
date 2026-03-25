@@ -15,6 +15,8 @@
 #include "kernel/device/reduction.cuh"
 #include "kernel/host/fill.hpp"
 #include "kernel/device/fill.cuh"
+#include "kernel/host/rsmnorm.hpp"
+#include "kernel/device/rsmnorm.cuh"
 
 
 namespace qwi::ops::kernel {
@@ -40,6 +42,17 @@ namespace qwi::ops::kernel {
         T value,
         int32_t dim,
         size_t count,
+        void* stream
+    )>;
+
+    template<typename T = float>
+    using RmsNormKernel = std::function<void(
+        const tensor::Tensor&,
+        const tensor::Tensor&,
+        tensor::Tensor&,
+        size_t num_rows,
+        size_t hidden_dim,
+        float eps,
         void* stream
     )>;
 
@@ -95,6 +108,20 @@ namespace qwi::ops::kernel {
             return fill_kernel_device<T>;
         }
         LOG(FATAL) << "Unknown device type for get a add kernel.";
+        return nullptr;
+    }
+
+    template<typename T = float>
+    RmsNormKernel<T> get_rms_norm_kernel(
+        const base::DeviceType device_type
+    ) {
+        if (device_type == base::DeviceType::kDeviceCPU) {
+            return rms_norm_kernel_host<T>;
+        }
+        if (device_type == base::DeviceType::kDeviceCUDA) {
+            return rms_norm_kernel_device<T>;
+        }
+        LOG(FATAL) << "Unknown device type for get rms norm kernel.";
         return nullptr;
     }
 }
