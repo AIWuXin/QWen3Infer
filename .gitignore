@@ -199,3 +199,5 @@ cython_debug/
 cmake-build-debug/
 cmake-build-release/
 third_party/
+models/
+ncu/

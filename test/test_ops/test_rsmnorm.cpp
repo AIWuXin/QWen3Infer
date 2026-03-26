@@ -475,7 +475,7 @@ TEST_F(CudaRmsNormTest, CompareWithCPU) {
 
     // 转移回 CPU 比较
     cuda_output.cpu();
-    float* cpu_result = cpu_output.ptr<float>();
+    auto* cpu_result = cpu_output.ptr<float>();
 
     for (size_t i = 0; i < num_rows * hidden_dim; ++i) {
         EXPECT_NEAR(cuda_output.ptr<float>()[i], cpu_result[i], 1e-4f);
