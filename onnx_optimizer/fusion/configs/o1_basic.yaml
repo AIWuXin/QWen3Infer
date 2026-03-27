@@ -1,0 +1,101 @@
+# O1级别: 基础融合
+# 使用标准ONNX算子进行融合
+
+name: "O1_Basic_Fusion"
+description: "基础层融合，使用标准ONNX算子"
+level: 1
+
+passes:
+  # LayerNorm融合 (标准ONNX LayerNormalization)
+  - name: "LayerNormFusion"
+    enabled: true
+    description: "融合LayerNorm子图"
+    pattern:
+      type: "sequence"
+      nodes:
+        # node0: ReduceMean(input, axes=[-1])
+        - op: "ReduceMean"
+          attrs:
+            axes: [-1]
+        # node1: Sub(input, mean)
+        - op: "Sub"
+        # node2: Pow(sub_result, 2)
+        - op: "Pow"
+          attrs:
+            exponent: 2.0
+        # node3: ReduceMean(pow_result, axes=[-1])
+        - op: "ReduceMean"
+          attrs:
+            axes: [-1]
+        # node4: Add(var, epsilon)
+        - op: "Add"
+        # node5: Sqrt(add_result)
+        - op: "Sqrt"
+        # node6: Div(sub_result, sqrt_result)
+        - op: "Div"
+        # node7: Mul(div_result, scale)
+        - op: "Mul"
+        # node8: Add(mul_result, bias)
+        - op: "Add"
+    replacement:
+      op: "LayerNormalization"
+      domain: ""
+      inputs: ["${node0.input[0]}"]
+      outputs: ["${node8.output[0]}"]
+      attrs:
+        axis: -1
+        epsilon: 1e-5
+      # 权重从原节点提取
+      weights:
+        scale: "${node7.input[1]}"
+        bias: "${node8.input[1]}"
+
+  # RMSNorm融合 (Qwen/Llama风格)
+  - name: "RMSNormFusion"
+    enabled: true
+    description: "融合RMSNorm子图"
+    pattern:
+      type: "sequence"
+      nodes:
+        # node0: ReduceMean(x^2, axes=[-1], keepdims=1)
+        - op: "ReduceMean"
+          attrs:
+            axes: [-1]
+            keepdims: 1
+        # node1: Add(epsilon)
+        - op: "Add"
+        # node2: Sqrt
+        - op: "Sqrt"
+        # node3: Div(x, sqrt_result)
+        - op: "Div"
+        # node4: Mul(result, weight)
+        - op: "Mul"
+    replacement:
+      op: "Mul"  # 暂时用Mul代替，因为RMSNorm不是标准算子
+      inputs: ["${node3.output[0]}", "${node4.input[1]}"]
+      outputs: ["${node4.output[0]}"]
+
+  # GELU融合 (近似版本)
+  - name: "GeluFusion"
+    enabled: true
+    description: "融合GELU激活函数"
+    pattern:
+      type: "sequence"
+      nodes:
+        # node0: Div(x, sqrt(2))
+        - op: "Div"
+        # node1: Erf
+        - op: "Erf"
+        # node2: Add(erf_result, 1)
+        - op: "Add"
+        # node3: Mul(add_result, x)
+        - op: "Mul"
+        # node4: Mul(mul_result, 0.5)
+        - op: "Mul"
+    replacement:
+      op: "Gelu"
+      domain: "com.microsoft"
+      inputs: ["${node0.input[0]}"]
+      outputs: ["${node4.output[0]}"]
+      attrs:
+        approximate: "none"

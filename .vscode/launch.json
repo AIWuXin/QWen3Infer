@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ONNX Optimizer: 导出模型",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "onnx_optimizer",
+      "args": ["export", "models/onnx/qwen3_0.6b/", "-o", "output/"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "ONNX Optimizer: 层融合",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "onnx_optimizer",
+      "args": ["fuse", "model.onnx", "--level", "O1", "-o", "fused.onnx"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "ONNX Optimizer: 当前文件",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

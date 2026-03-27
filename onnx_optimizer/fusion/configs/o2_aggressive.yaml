@@ -1,0 +1,77 @@
+# O2级别: 激进融合
+# 使用ONNX Runtime支持的非标准算子
+
+name: "O2_Aggressive_Fusion"
+description: "激进层融合，使用ORT特定算子"
+level: 2
+extends: "o1_basic.yaml"
+
+passes:
+  # Multi-Head Attention融合
+  - name: "MultiHeadAttentionFusion"
+    enabled: true
+    description: "融合整个MHA模块"
+    requires_domain: "com.microsoft"
+    pattern:
+      type: "subgraph"
+      sequence:
+        - op: "MatMul"  # Q
+        - op: "MatMul"  # K
+        - op: "MatMul"  # V
+        - op: "Transpose"
+        - op: "Transpose"
+        - op: "MatMul"  # Q @ K^T
+        - op: "Div"
+        - op: "Softmax"
+        - op: "MatMul"  # @ V
+        - op: "Transpose"
+        - op: "Reshape"
+        - op: "MatMul"  # output proj
+    replacement:
+      op: "MultiHeadAttention"
+      domain: "com.microsoft"
+      inputs: ["${input}", "${input}", "${input}"]  # Q, K, V (自注意力)
+      outputs: ["${node11.output[0]}"]
+      attrs:
+        num_heads: "${auto_detect}"
+        mask_filter_value: -10000.0
+
+  # FFN融合
+  - name: "FFNFusion"
+    enabled: true
+    description: "融合FFN层 (gate_proj + up_proj)"
+    pattern:
+      type: "parallel_branches"
+      input: "${input}"
+      branches:
+        - op: "MatMul"  # gate
+          name_pattern: "*.gate_proj*"
+        - op: "MatMul"  # up
+          name_pattern: "*.up_proj*"
+      merge:
+        - op: "Mul"  # SiLU(gate) * up
+        - op: "MatMul"  # down proj
+    replacement:
+      op: "FusedFFN"
+      domain: "com.microsoft"
+
+  # RMSNorm融合
+  - name: "RMSNormFusion"
+    enabled: true
+    description: "融合RMSNorm (Llama/Qwen风格)"
+    pattern:
+      type: "subgraph"
+      nodes:
+        - op: "ReduceMean"
+          attrs:
+            axes: [-1]
+            keepdims: 1
+        - op: "Add"
+        - op: "Sqrt"
+        - op: "Div"
+        - op: "Mul"  # weight
+    replacement:
+      op: "RMSNormalization"
+      domain: "onnx_opt.custom"
+      inputs: ["${node0.input[0]}"]
+      outputs: ["${node4.output[0]}"]

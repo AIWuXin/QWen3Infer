@@ -1,0 +1,92 @@
+# O3级别: 自定义算子
+# 使用完全自定义的算子，需要推理框架实现
+
+name: "O3_Custom_Op_Fusion"
+description: "自定义算子融合，最大化性能"
+level: 3
+extends: "o2_aggressive.yaml"
+
+custom_ops:
+  # 定义自定义算子元数据
+  - name: "FusedTransformerLayer"
+    domain: "onnx_opt.custom"
+    version: 1
+    inputs:
+      - name: "input"
+        type: "tensor"
+      - name: "attention_mask"
+        type: "tensor"
+        optional: true
+      - name: "past_key_values"
+        type: "tensor"
+        optional: true
+    outputs:
+      - name: "output"
+        type: "tensor"
+      - name: "present_key_values"
+        type: "tensor"
+        optional: true
+    attrs:
+      - name: "num_heads"
+        type: "int"
+        required: true
+      - name: "head_dim"
+        type: "int"
+        required: true
+      - name: "intermediate_size"
+        type: "int"
+        required: true
+      - name: "layer_norm_eps"
+        type: "float"
+        default: 1e-5
+
+passes:
+  # 整个Transformer层融合
+  - name: "TransformerLayerFusion"
+    enabled: true
+    description: "融合整个Transformer层为单个算子"
+    pattern:
+      type: "subgraph"
+      sequence:
+        - name: "input_ln"
+          op_type: "LayerNorm|RMSNorm"
+        - name: "attn"
+          op_type: "MultiHeadAttention|Attention"
+        - name: "attn_residual"
+          op_type: "Add"
+        - name: "ffn_ln"
+          op_type: "LayerNorm|RMSNorm"
+        - name: "ffn"
+          op_type: "FusedFFN|FFN"
+        - name: "ffn_residual"
+          op_type: "Add"
+    replacement:
+      op: "FusedTransformerLayer"
+      domain: "onnx_opt.custom"
+      inputs:
+        - "${input}"
+        - "${attn.input[1]}"  # attention mask
+        - "${attn.input[2]}"  # past_key_values
+      outputs:
+        - "${ffn_residual.output[0]}"
+        - "${attn.output[1]}"  # present_key_values
+      attrs:
+        num_heads: "${auto_detect}"
+        head_dim: "${auto_detect}"
+        intermediate_size: "${auto_detect}"
+
+  # FlashAttention风格融合
+  - name: "FlashAttentionFusion"
+    enabled: true
+    description: "使用FlashAttention算法融合注意力"
+    requires_implementation: true
+    pattern:
+      type: "subgraph"
+      match_func: "match_flash_attention"
+    replacement:
+      op: "FlashAttention"
+      domain: "onnx_opt.custom"
+      implementation_hint: "cuda_flash_attn"
+      attrs:
+        causal: true
+        softmax_scale: "${auto_detect}"
