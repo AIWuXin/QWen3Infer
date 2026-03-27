@@ -32,7 +32,7 @@ if __name__ == '__main__':
         "--trust-remote-code",
         "--no-post-process",  # 跳过 post-processing（避免 protobuf 2GB 限制）
         "--dtype", "fp16",
-        "--opset", "18",
+        "--opset", "23",
         "--batch_size", "1",
     ]
     
